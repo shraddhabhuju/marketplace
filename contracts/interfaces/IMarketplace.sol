@@ -1,6 +1,8 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
+
 import "./IPlatformFee.sol";
+
 interface IMarketplace is IPlatformFee {
     enum TokenType {
         ERC20,
@@ -9,37 +11,15 @@ interface IMarketplace is IPlatformFee {
     }
 
     /**
-     *  @dev For use in `createListing` as a parameter type.
+     * @dev Parameters used for creating a new listing.
      *
-     *  @param assetContract         The contract address of the NFT to list for sale.
-
-     *  @param tokenId               The tokenId on `assetContract` of the NFT to list for sale.
-
-     *  @param startTime             The unix timestamp after which the listing is active. For direct listings:
-     *                               'active' means NFTs can be bought from the listing. For auctions,
-     *                               'active' means bids can be made in the auction.
-     *
-     *  @param secondsUntilEndTime   No. of seconds after `startTime`, after which the listing is inactive.
-     *                               For direct listings: 'inactive' means NFTs cannot be bought from the listing.
-     *                               For auctions: 'inactive' means bids can no longer be made in the auction.
-     *
-     *  @param quantityToList        The quantity of NFT of ID `tokenId` on the given `assetContract` to list. For
-     *                               ERC 721 tokens to list for sale, the contract strictly defaults this to `1`,
-     *                               Regardless of the value of `quantityToList` passed.
-     *
-     *  @param currencyToAccept      For direct listings: the currency in which a buyer must pay the listing's fixed price
-     *                               to buy the NFT(s). For auctions: the currency in which the bidders must make bids.
-     *
-     *  @param reservePricePerToken  For direct listings: this value is ignored. For auctions: the minimum bid amount of
-     *                               the auction is `reservePricePerToken * quantityToList`
-     *
-     *  @param buyoutPricePerToken   For direct listings: interpreted as 'price per token' listed. For auctions: if
-     *                               `buyoutPricePerToken` is greater than 0, and a bidder's bid is at least as great as
-     *                               `buyoutPricePerToken * quantityToList`, the bidder wins the auction, and the auction
-     *                               is closed.
-     *
-     *  @param listingType           The type of listing to create - a direct listing or an auction.
-    **/
+     * @param assetContract         The address of the NFT contract.
+     * @param tokenId               The ID of the NFT to list for sale.
+     * @param startTime             The timestamp after which the listing becomes active.
+     * @param quantityToList        The number of NFTs to list. Defaults to `1` for ERC721 tokens.
+     * @param currencyToAccept      The currency accepted for the listing. For direct listings, this is the payment currency. For auctions, it's the bidding currency.
+     * @param buyoutPricePerToken   The price per token for direct listings. For auctions, if a bid meets or exceeds this value multiplied by `quantityToList`, the auction ends immediately.
+     */
     struct ListingParameters {
         address assetContract;
         uint256 tokenId;
@@ -49,50 +29,20 @@ interface IMarketplace is IPlatformFee {
         uint256 buyoutPricePerToken;
     }
 
-
-        /**
-     *  @notice The information related to a listing; either (1) a direct listing, or (2) an auction listing.
+    /**
+     * @dev Information related to a listing, whether a direct listing or an auction.
      *
-     *  @dev For direct listings:
-     *          (1) `reservePricePerToken` is ignored.
-     *          (2) `buyoutPricePerToken` is simply interpreted as 'price per token'.
-     *
-     *  @param listingId             The uid for the listing.
-     *
-     *  @param tokenOwner            The owner of the tokens listed for sale.  
-     *
-     *  @param assetContract         The contract address of the NFT to list for sale.
-
-     *  @param tokenId               The tokenId on `assetContract` of the NFT to list for sale.
-
-     *  @param startTime             The unix timestamp after which the listing is active. For direct listings:
-     *                               'active' means NFTs can be bought from the listing. For auctions,
-     *                               'active' means bids can be made in the auction.
-     *
-     *  @param endTime               The timestamp after which the listing is inactive.
-     *                               For direct listings: 'inactive' means NFTs cannot be bought from the listing.
-     *                               For auctions: 'inactive' means bids can no longer be made in the auction.
-     *
-     *  @param quantity              The quantity of NFT of ID `tokenId` on the given `assetContract` listed. For
-     *                               ERC 721 tokens to list for sale, the contract strictly defaults this to `1`,
-     *                               Regardless of the value of `quantityToList` passed.
-     *
-     *  @param currency              For direct listings: the currency in which a buyer must pay the listing's fixed price
-     *                               to buy the NFT(s). For auctions: the currency in which the bidders must make bids.
-     *
-     *  @param reservePricePerToken  For direct listings: this value is ignored. For auctions: the minimum bid amount of
-     *                               the auction is `reservePricePerToken * quantityToList`
-     *
-     *  @param buyoutPricePerToken   For direct listings: interpreted as 'price per token' listed. For auctions: if
-     *                               `buyoutPricePerToken` is greater than 0, and a bidder's bid is at least as great as
-     *                               `buyoutPricePerToken * quantityToList`, the bidder wins the auction, and the auction
-     *                               is closed.
-     *
-     *  @param tokenType             The type of the token(s) listed for for sale -- ERC721 or ERC1155 
-     *
-     * @param listingType            The type of listing to create - a direct listing or an auction.
-    **/
-
+     * @param listingId             The unique ID for the listing.
+     * @param tokenOwner            The owner of the tokens listed for sale.
+     * @param assetContract         The address of the NFT contract.
+     * @param tokenId               The ID of the NFT to list for sale.
+     * @param startTime             The timestamp after which the listing is active.
+     * @param quantity              The number of NFTs listed. Defaults to `1` for ERC721 tokens.
+     * @param currency              The currency accepted for the listing.
+     * @param buyoutPricePerToken   The price per token for direct listings. For auctions, it's the buyout price per token.
+     * @param tokenType             The type of token listed (ERC721 or ERC1155).
+     * @param listingType           The type of listing - either direct or auction.
+     */
     struct Listing {
         uint256 listingId;
         address tokenOwner;
@@ -105,7 +55,38 @@ interface IMarketplace is IPlatformFee {
         TokenType tokenType;
     }
 
-    /// @dev Emitted when a new listing is created.
+    // Errors
+    error InvalidToken(address tokenAddress);
+    error InvalidTokenData();
+    error InvalidQuantity();
+  error ListDoesntExists();
+    error InsufficientERC20Balance(
+        address addressToCheck,
+        address currency,
+        uint256 currencyAmountToCheckAgainst
+    );
+    error NotListOwner(address actualOwner,address owner);
+    error NotLister();
+    error InvalidStartTime(uint256 currentTimeStamp, uint256 startTime);
+    error InvalidTokenType();
+    error InvalidTokenAmount(uint256 quantityToBuy, uint256 listingQuantity);
+    error ListingNotStarted();
+    error ExccededMaximumBPS(uint256 _platformFeeBps);
+    error InsufficentBalance(uint256 sentBalance, uint256 settledTotalPrice);
+    error FeesExceedPrice(uint256 calculatedAmount, uint256 totalPayoutAmount);
+
+    /**
+     * @dev Allows adding or removing tokens from the whitelist.
+     *
+     * @param tokens          Array of token addresses to be updated.
+     * @param isWhitelisted   Boolean array indicating the whitelisted status of each token.
+     */
+    function updateWhitelistedTokens(
+        address[] memory tokens,
+        bool[] memory isWhitelisted
+    ) external;
+
+    // Events
     event ListingAdded(
         uint256 indexed listingId,
         address indexed assetContract,
@@ -113,22 +94,24 @@ interface IMarketplace is IPlatformFee {
         Listing listing
     );
 
-    /// @dev Emitted when the parameters of a listing are updated.
+    event TokenWhitelisted(
+        address tokenAddress,
+        address whitelister,
+        bool isWhitelisted
+    );
+
     event ListingUpdated(
         uint256 indexed listingId,
         address indexed listingCreator
     );
 
-    /// @dev Emitted when a listing is cancelled.
     event ListingRemoved(
         uint256 indexed listingId,
         address indexed listingCreator
     );
 
-      /**
-     * @dev Emitted when a buyer buys from a direct listing, or a lister accepts some
-     *      buyer's offer to their direct listing.
-     */
+    event CurrencyWhitelisterUpdated(address account);
+
     event NewSale(
         uint256 indexed listingId,
         address indexed assetContract,
@@ -138,9 +121,23 @@ interface IMarketplace is IPlatformFee {
         uint256 totalPricePaid
     );
 
-
+    /**
+     * @dev Creates a new listing with the provided parameters.
+     *
+     * @param _params The parameters of the listing to create.
+     */
     function createListing(ListingParameters memory _params) external;
- function updateListing(
+
+    /**
+     * @dev Updates the parameters of an existing listing.
+     *
+     * @param _listingId           The unique ID of the listing to update.
+     * @param _quantityToList      The new quantity of NFTs to list.
+     * @param _buyoutPricePerToken The new buyout price per token.
+     * @param _currencyToAccept    The new currency to accept.
+     * @param _startTime           The new start time for the listing.
+     */
+    function updateListing(
         uint256 _listingId,
         uint256 _quantityToList,
         uint256 _buyoutPricePerToken,
@@ -149,26 +146,20 @@ interface IMarketplace is IPlatformFee {
     ) external;
 
     /**
-     *  @notice Lets a direct listing creator cancel their listing.
+     * @dev Cancels an existing direct listing.
      *
-     *  @param _listingId The unique Id of the listing to cancel.
+     * @param _listingId The unique ID of the listing to cancel.
      */
     function cancelDirectListing(uint256 _listingId) external;
-   /**
-     *  @notice Lets someone buy a given quantity of tokens from a direct listing by paying the fixed price.
+
+    /**
+     * @dev Allows a buyer to purchase a specified quantity of tokens from a direct listing by paying the fixed price.
      *
-     *  @param _listingId The uid of the direct listing to buy from.
-     *  @param _buyFor The receiver of the NFT being bought.
-     *  @param _quantity The amount of NFTs to buy from the direct listing.
-     *  @param _currency The currency to pay the price in.
-     *  @param _totalPrice The total price to pay for the tokens being bought.
-     *
-     *  @dev A sale will fail to execute if either:
-     *          (1) buyer does not own or has not approved Marketplace to transfer the appropriate
-     *              amount of currency (or hasn't sent the appropriate amount of native tokens)
-     *
-     *          (2) the lister does not own or has removed Marketplace's
-     *              approval to transfer the tokens listed for sale.
+     * @param _listingId The unique ID of the direct listing to buy from.
+     * @param _buyFor    The address that will receive the purchased NFTs.
+     * @param _quantity  The quantity of NFTs to buy.
+     * @param _currency  The currency to use for the purchase.
+     * @param _totalPrice The total price to pay for the tokens being bought.
      */
     function buy(
         uint256 _listingId,

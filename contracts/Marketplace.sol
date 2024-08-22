@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 import {IMarketplace} from "./interfaces/IMarketplace.sol";
 import {AccessControlEnumerableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/extensions/AccessControlEnumerableUpgradeable.sol";
@@ -10,7 +10,6 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
 import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./extensions/CurrencyTransferLib.sol";
-
 
 contract Marketplace is
     IMarketplace,
@@ -33,19 +32,36 @@ contract Marketplace is
     bytes32 private constant LISTER_ROLE = keccak256("LISTER_ROLE");
     /// @dev The address of the native token wrapper contract.
     address private immutable nativeTokenWrapper;
+
+    /// @dev whitelister who can whitelist the currency that can be used in the marketplace
+    bytes32 private constant CURRENCY_WHITELISTER_ROLE =
+        keccak256("CURRENCY_WHITELISTER_ROLE");
+
+    mapping(address => bool) public whitelistedTokens;
     /*///////////////////////////////////////////////////////////////
                                 Modifiers
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Checks whether caller is a listing creator.
     modifier onlyListingCreator(uint256 _listingId) {
-        require(listings[_listingId].tokenOwner == msg.sender, "!OWNER");
+        if (listings[_listingId].tokenOwner == msg.sender) {
+            revert NotListOwner(listings[_listingId].tokenOwner, msg.sender);
+        }
         _;
     }
 
     /// @dev Checks whether a listing exists.
     modifier onlyExistingListing(uint256 _listingId) {
-        require(listings[_listingId].assetContract != address(0), "DNE");
+        if (listings[_listingId].assetContract != address(0)) {
+            revert ListDoesntExists();
+        }
+        _;
+    }
+
+    modifier isWhitelistedToken(address tokenAddress) {
+        if (tokenAddress != address(0) && !whitelistedTokens[tokenAddress]) {
+            revert InvalidToken(tokenAddress);
+        }
         _;
     }
 
@@ -67,8 +83,9 @@ contract Marketplace is
 
         platformFeeBps = uint64(_platformFeeBps);
         platformFeeRecipient = _platformFeeRecipient;
-
         _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
+
+        _setRoleAdmin(CURRENCY_WHITELISTER_ROLE, DEFAULT_ADMIN_ROLE);
     }
 
     /// @dev Lets a token owner list tokens for sale: Direct Listing
@@ -84,17 +101,21 @@ contract Marketplace is
             _params.quantityToList
         );
 
-        require(tokenAmountToList > 0, "QUANTITY");
-        require(
-            hasRole(LISTER_ROLE, address(0)) ||
-                hasRole(LISTER_ROLE, msg.sender),
-            "!LISTER"
-        );
+        if (tokenAmountToList > 0) {
+            revert InvalidQuantity();
+        }
+        if (
+            hasRole(LISTER_ROLE, address(0)) || hasRole(LISTER_ROLE, msg.sender)
+        ) {
+            revert NotLister();
+        }
 
         uint256 startTime = _params.startTime;
         if (startTime < block.timestamp) {
             // do not allow listing to start in the past (1 hour buffer)
-            require(block.timestamp - startTime < 1 hours, "ST");
+            if (block.timestamp - startTime < 1 hours) {
+                revert InvalidStartTime(block.timestamp, startTime);
+            }
             startTime = block.timestamp;
         }
 
@@ -142,11 +163,15 @@ contract Marketplace is
             _quantityToList
         );
 
-        require(safeNewQuantity != 0, "QUANTITY");
+        if (safeNewQuantity != 0) {
+            revert InvalidQuantity();
+        }
 
         if (_startTime < block.timestamp) {
             // do not allow listing to start in the past (1 hour buffer)
-            require(block.timestamp - _startTime < 1 hours, "ST");
+            if (block.timestamp - _startTime < 1 hours) {
+                revert InvalidStartTime(block.timestamp, _startTime);
+            }
             _startTime = block.timestamp;
         }
 
@@ -228,7 +253,9 @@ contract Marketplace is
                 IERC1155(_assetContract).isApprovedForAll(_tokenOwner, market);
         }
 
-        require(isValid, "!BALNFT");
+        if (isValid) {
+            revert InvalidTokenType();
+        }
     }
 
     /// @dev Lets an account buy a given quantity of tokens from a listing.
@@ -349,10 +376,12 @@ contract Marketplace is
             )
         returns (address royaltyFeeRecipient, uint256 royaltyFeeAmount) {
             if (royaltyFeeRecipient != address(0) && royaltyFeeAmount > 0) {
-                require(
-                    royaltyFeeAmount + platformFeeCut <= _totalPayoutAmount,
-                    "fees exceed the price"
-                );
+                if (royaltyFeeAmount + platformFeeCut <= _totalPayoutAmount) {
+                    revert FeesExceedPrice(
+                        royaltyFeeAmount + platformFeeCut,
+                        _totalPayoutAmount
+                    );
+                }
                 royaltyRecipient = royaltyFeeRecipient;
                 royaltyCut = royaltyFeeAmount;
             }
@@ -393,23 +422,24 @@ contract Marketplace is
         uint256 settledTotalPrice
     ) internal {
         // Check whether a valid quantity of listed tokens is being bought.
-        require(
+        if (
             _listing.quantity > 0 &&
-                _quantityToBuy > 0 &&
-                _quantityToBuy <= _listing.quantity,
-            "invalid amount of tokens."
-        );
+            _quantityToBuy > 0 &&
+            _quantityToBuy <= _listing.quantity
+        ) {
+            revert InvalidTokenAmount(_quantityToBuy, _listing.quantity);
+        }
 
         // Check if sale is made within the listing window.
-        require(
-           
-                block.timestamp > _listing.startTime,
-            "not within sale window."
-        );
+        if (block.timestamp > _listing.startTime) {
+            revert ListingNotStarted();
+        }
 
         // Check: buyer owns and has approved sufficient currency for sale.
         if (_currency == CurrencyTransferLib.NATIVE_TOKEN) {
-            require(msg.value == settledTotalPrice, "msg.value != price");
+            if (msg.value == settledTotalPrice) {
+                revert InsufficentBalance(msg.value, settledTotalPrice);
+            }
         } else {
             validateERC20BalAndAllowance(_payer, _currency, settledTotalPrice);
         }
@@ -430,13 +460,18 @@ contract Marketplace is
         address _currency,
         uint256 _currencyAmountToCheckAgainst
     ) internal view {
-        require(
+        if (
             IERC20(_currency).balanceOf(_addrToCheck) >=
-                _currencyAmountToCheckAgainst &&
-                IERC20(_currency).allowance(_addrToCheck, address(this)) >=
-                _currencyAmountToCheckAgainst,
-            "!BAL20"
-        );
+            _currencyAmountToCheckAgainst &&
+            IERC20(_currency).allowance(_addrToCheck, address(this)) >=
+            _currencyAmountToCheckAgainst
+        ) {
+            revert InsufficientERC20Balance(
+                _addrToCheck,
+                _currency,
+                _currencyAmountToCheckAgainst
+            );
+        }
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -476,7 +511,7 @@ contract Marketplace is
         ) {
             tokenType = TokenType.ERC20;
         } else {
-            revert("token must be ERC1155 or ERC721.");
+            revert InvalidTokenType();
         }
     }
 
@@ -494,12 +529,50 @@ contract Marketplace is
         address _platformFeeRecipient,
         uint256 _platformFeeBps
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_platformFeeBps <= MAX_BPS, "bps <= 10000.");
+        if (_platformFeeBps <= MAX_BPS) {
+            revert ExccededMaximumBPS(_platformFeeBps);
+        }
 
         platformFeeBps = uint64(_platformFeeBps);
         platformFeeRecipient = _platformFeeRecipient;
 
         emit PlatformFeeInfoUpdated(_platformFeeRecipient, _platformFeeBps);
+    }
+
+    function setCurrencyWhitelister(
+        address account
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _grantRole(CURRENCY_WHITELISTER_ROLE, account);
+
+        emit CurrencyWhitelisterUpdated(account);
+    }
+
+    // Updates the whitelist status of multiple tokens.
+    function updateWhitelistedTokens(
+        address[] memory tokens,
+        bool[] memory isWhitelisted
+    ) external override {
+        _checkRole(CURRENCY_WHITELISTER_ROLE, _msgSender());
+        uint tokensLength = tokens.length;
+        uint isWhitelistedLength = isWhitelisted.length;
+
+        // Check if the length of the token and isWhitelisted arrays match
+        if (tokensLength != isWhitelistedLength) revert InvalidTokenData();
+
+        // Update the whitelist status of each token
+        for (uint index; index < tokensLength; ) {
+            whitelistedTokens[tokens[index]] = isWhitelisted[index];
+
+            // Emit an event for the token whitelist update
+            emit TokenWhitelisted(
+                tokens[index],
+                msg.sender,
+                isWhitelisted[index]
+            );
+            unchecked {
+                ++index;
+            }
+        }
     }
 
     /*///////////////////////////////////////////////////////////////
