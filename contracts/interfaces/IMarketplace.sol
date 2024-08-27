@@ -7,7 +7,9 @@ interface IMarketplace is IPlatformFee {
     enum TokenType {
         ERC20,
         ERC721,
-        ERC1155
+        ERC1155,
+        ERC3643,
+        ERC1400
     }
 
     /**
@@ -23,6 +25,25 @@ interface IMarketplace is IPlatformFee {
     struct ListingParameters {
         address assetContract;
         uint256 tokenId;
+        uint256 startTime;
+        uint256 quantityToList;
+        address currencyToAccept;
+        uint256 buyoutPricePerToken;
+    }
+
+    /**
+     * @dev Parameters used for creating a new listing.
+     *
+     * @param assetContract         The address of the NFT contract.
+     * @param tokenIds              The ID of the NFT to list for sale. //0 for erc20 token
+     * @param startTime             The timestamp after which the listing becomes active.
+     * @param quantityToList        The number of NFTs to list. Defaults to `1` for ERC721 tokens.
+     * @param currencyToAccept      The currency accepted for the listing. For direct listings, this is the payment currency. For auctions, it's the bidding currency.
+     * @param buyoutPricePerToken   The price per token for direct listings. For auctions, if a bid meets or exceeds this value multiplied by `quantityToList`, the auction ends immediately.
+     */
+    struct BulkListingParameters {
+        address assetContract;
+        uint256[]  tokenIds;
         uint256 startTime;
         uint256 quantityToList;
         address currencyToAccept;
@@ -58,14 +79,15 @@ interface IMarketplace is IPlatformFee {
     // Errors
     error InvalidToken(address tokenAddress);
     error InvalidTokenData();
+    error InvalidBulkBuyData();
     error InvalidQuantity();
-  error ListDoesntExists();
+    error ListDoesntExists();
     error InsufficientERC20Balance(
         address addressToCheck,
         address currency,
         uint256 currencyAmountToCheckAgainst
     );
-    error NotListOwner(address actualOwner,address owner);
+    error NotListOwner(address actualOwner, address owner);
     error NotLister();
     error InvalidStartTime(uint256 currentTimeStamp, uint256 startTime);
     error InvalidTokenType();
@@ -74,7 +96,7 @@ interface IMarketplace is IPlatformFee {
     error ExccededMaximumBPS(uint256 _platformFeeBps);
     error InsufficentBalance(uint256 sentBalance, uint256 settledTotalPrice);
     error FeesExceedPrice(uint256 calculatedAmount, uint256 totalPayoutAmount);
-
+    error NotASoulBoundOwner(address account, address soulBoundNftAdress);
     /**
      * @dev Allows adding or removing tokens from the whitelist.
      *
@@ -83,6 +105,11 @@ interface IMarketplace is IPlatformFee {
      */
     function updateWhitelistedTokens(
         address[] memory tokens,
+        bool[] memory isWhitelisted
+    ) external;
+
+    function updateWhitelistedCurrency(
+        address[] memory currencyTokens,
         bool[] memory isWhitelisted
     ) external;
 
@@ -95,6 +122,12 @@ interface IMarketplace is IPlatformFee {
     );
 
     event TokenWhitelisted(
+        address tokenAddress,
+        address whitelister,
+        bool isWhitelisted
+    );
+
+    event CurrencyWhitelisted(
         address tokenAddress,
         address whitelister,
         bool isWhitelisted
@@ -128,6 +161,15 @@ interface IMarketplace is IPlatformFee {
      */
     function createListing(ListingParameters memory _params) external;
 
+    
+    /**
+     * @dev Creates a new listings with the provided parameters.
+     *
+     * @param _params The parameters of the listings to create.
+     */
+    function createMultipleListing(
+        BulkListingParameters memory _params
+    ) external;
     /**
      * @dev Updates the parameters of an existing listing.
      *
@@ -167,5 +209,13 @@ interface IMarketplace is IPlatformFee {
         uint256 _quantity,
         address _currency,
         uint256 _totalPrice
+    ) external payable;
+
+        function bulkBuy(
+        uint256[] memory _listingIds,
+        address _buyFor,
+        uint256[] memory _quantity,
+        address _currency,
+        uint256[] memory _totalPrice
     ) external payable;
 }

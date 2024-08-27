@@ -28,7 +28,9 @@ describe("Deployments ", function () {
     alternativeCurrencyAddress: string,
     otherAccountAddress: string,
     erc721Token: MyTokenNFT,
+    SoulBoundNft: MyTokenNFT,
     erc721TokenAddress: string,
+    SoulBoundNftTokenAddress: string,
     platformFeeRecipient: Signer,
     erc115Token: SemiFungible,
     listingContract: any,
@@ -60,6 +62,12 @@ describe("Deployments ", function () {
     erc721Token.waitForDeployment();
 
     erc721TokenAddress = await erc721Token.getAddress();
+
+    // deploy soulBound Nft token
+    SoulBoundNft = await deployErc721Token(owner, ownerAddress);
+    SoulBoundNft.waitForDeployment();
+
+    SoulBoundNftTokenAddress = await erc721Token.getAddress();
 
     // deploy erc1155 token
     erc115Token = await deployErc1155Token(owner, ownerAddress);

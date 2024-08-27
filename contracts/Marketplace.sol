@@ -35,12 +35,16 @@ contract Marketplace is
     bytes32 private constant LISTER_ROLE = keccak256("LISTER_ROLE");
     /// @dev The address of the native token wrapper contract.
     address private nativeTokenWrapper;
+    // S
+    address private soulBoundNftAddres;
 
     /// @dev whitelister who can whitelist the currency that can be used in the marketplace
     bytes32 private constant CURRENCY_WHITELISTER_ROLE =
         keccak256("CURRENCY_WHITELISTER_ROLE");
-
-    mapping(address => bool) public whitelistedTokens;
+    // tokens whitelisted to be listed
+    mapping(address => bool) public whitelistedListingTokens;
+    // currency that are accepted to purchase the NFTs
+    mapping(address => bool) public whitelistedCurrencyTokens;
     /*///////////////////////////////////////////////////////////////
                                 Modifiers
     //////////////////////////////////////////////////////////////*/
@@ -61,9 +65,18 @@ contract Marketplace is
         _;
     }
 
-    modifier isWhitelistedToken(address tokenAddress) {
-        if (tokenAddress == address(0) && !whitelistedTokens[tokenAddress]) {
+    modifier isWhitelistedListingToken(address tokenAddress) {
+        if (
+            tokenAddress == address(0) &&
+            !whitelistedListingTokens[tokenAddress]
+        ) {
             revert InvalidToken(tokenAddress);
+        }
+        _;
+    }
+    modifier hasSoulBoundNFT() {
+        if (IERC721(soulBoundNftAddres).balanceOf(msg.sender) < 0) {
+            revert NotASoulBoundOwner(msg.sender, soulBoundNftAddres);
         }
         _;
     }
@@ -77,24 +90,51 @@ contract Marketplace is
         address _defaultAdmin,
         address _platformFeeRecipient,
         uint256 _platformFeeBps,
-        address _nativeTokenWrapper
+        address _nativeTokenWrapper,
+        address _soulBoundNftAddress
     ) external initializer {
         __ReentrancyGuard_init();
         __AccessControl_init();
         nativeTokenWrapper = _nativeTokenWrapper;
         platformFeeBps = uint64(_platformFeeBps);
         platformFeeRecipient = _platformFeeRecipient;
-
+        soulBoundNftAddres = _soulBoundNftAddress;
         _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
-        console.log("_defaultAdmin",_defaultAdmin);
-        
+        console.log("_defaultAdmin", _defaultAdmin);
+
         _setRoleAdmin(CURRENCY_WHITELISTER_ROLE, DEFAULT_ADMIN_ROLE);
-       
-       
+    }
+
+    function createListing(
+        ListingParameters memory _params
+    ) external override hasSoulBoundNFT {
+        _createSingleListing(_params);
+    }
+
+    function createMultipleListing(
+        BulkListingParameters memory _params
+    ) external override hasSoulBoundNFT {
+        uint tokensLength = _params.tokenIds.length;
+
+        // Update the whitelist status of each token
+        for (uint index; index < tokensLength; ) {
+            ListingParameters memory params = ListingParameters({
+                assetContract: _params.assetContract,
+                tokenId: _params.tokenIds[index],
+                startTime: _params.startTime,
+                quantityToList: _params.quantityToList,
+                currencyToAccept: _params.currencyToAccept,
+                buyoutPricePerToken: _params.buyoutPricePerToken
+            });
+            _createSingleListing(params);
+            unchecked {
+                ++index;
+            }
+        }
     }
 
     /// @dev Lets a token owner list tokens for sale: Direct Listing
-    function createListing(ListingParameters memory _params) external override {
+    function _createSingleListing(ListingParameters memory _params) internal {
         // Get values to populate `Listing`.
         uint256 listingId = totalListings;
         totalListings += 1;
@@ -239,7 +279,6 @@ contract Marketplace is
     ) internal view {
         address market = address(this);
         bool isValid;
-        console.log(" ~ isValid:", isValid);
         if (_tokenType == TokenType.ERC1155) {
             isValid =
                 IERC1155(_assetContract).balanceOf(_tokenOwner, _tokenId) >=
@@ -259,14 +298,54 @@ contract Marketplace is
         }
     }
 
-    /// @dev Lets an account buy a given quantity of tokens from a listing.
+    function bulkBuy(
+        uint256[] memory _listingIds,
+        address _buyFor,
+        uint256[] memory _quantityToBuy,
+        address _currency,
+        uint256[] memory _totalPrice
+    ) external payable override nonReentrant  {
+        uint listingsLength = _listingIds.length;
+        uint quantityToBuyLength = _quantityToBuy.length;
+        uint totalPriceLength = _totalPrice.length;
+        if (
+            listingsLength != quantityToBuyLength &&
+            quantityToBuyLength != totalPriceLength
+        ) revert InvalidBulkBuyData();
+
+        // Update the whitelist status of each token
+        for (uint index; index < listingsLength; ) {
+            _buy(
+                _listingIds[index],
+                _buyFor,
+                _quantityToBuy[index],
+                _currency,
+                _totalPrice[index]
+            );
+            unchecked {
+                ++index;
+            }
+        }
+    }
+
     function buy(
         uint256 _listingId,
         address _buyFor,
         uint256 _quantityToBuy,
         address _currency,
         uint256 _totalPrice
-    ) external payable override nonReentrant onlyExistingListing(_listingId) {
+    ) external payable override nonReentrant  {
+        _buy(_listingId, _buyFor, _quantityToBuy, _currency, _totalPrice);
+    }
+
+    /// @dev Lets an account buy a given quantity of tokens from a listing.
+    function _buy(
+        uint256 _listingId,
+        address _buyFor,
+        uint256 _quantityToBuy,
+        address _currency,
+        uint256 _totalPrice
+    ) internal onlyExistingListing(_listingId) {
         Listing memory targetListing = listings[_listingId];
         address payer = msg.sender;
 
@@ -377,7 +456,7 @@ contract Marketplace is
             )
         returns (address royaltyFeeRecipient, uint256 royaltyFeeAmount) {
             if (royaltyFeeRecipient != address(0) && royaltyFeeAmount > 0) {
-                if (royaltyFeeAmount + platformFeeCut <= _totalPayoutAmount) {
+                if (royaltyFeeAmount + platformFeeCut > _totalPayoutAmount) {
                     revert FeesExceedPrice(
                         royaltyFeeAmount + platformFeeCut,
                         _totalPayoutAmount
@@ -546,7 +625,7 @@ contract Marketplace is
     function updateWhitelistedTokens(
         address[] memory tokens,
         bool[] memory isWhitelisted
-    ) external override onlyRole(CURRENCY_WHITELISTER_ROLE) {
+    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
         uint tokensLength = tokens.length;
         uint isWhitelistedLength = isWhitelisted.length;
 
@@ -555,11 +634,40 @@ contract Marketplace is
 
         // Update the whitelist status of each token
         for (uint index; index < tokensLength; ) {
-            whitelistedTokens[tokens[index]] = isWhitelisted[index];
+            whitelistedListingTokens[tokens[index]] = isWhitelisted[index];
 
             // Emit an event for the token whitelist update
             emit TokenWhitelisted(
                 tokens[index],
+                msg.sender,
+                isWhitelisted[index]
+            );
+            unchecked {
+                ++index;
+            }
+        }
+    }
+
+    // Updates the whitelist status of currency tokens.
+    function updateWhitelistedCurrency(
+        address[] memory currencyTokens,
+        bool[] memory isWhitelisted
+    ) external override onlyRole(CURRENCY_WHITELISTER_ROLE) {
+        uint tokensLength = currencyTokens.length;
+        uint isWhitelistedLength = isWhitelisted.length;
+
+        // Check if the length of the token and isWhitelisted arrays match
+        if (tokensLength != isWhitelistedLength) revert InvalidTokenData();
+
+        // Update the whitelist status of each token
+        for (uint index; index < tokensLength; ) {
+            whitelistedCurrencyTokens[currencyTokens[index]] = isWhitelisted[
+                index
+            ];
+
+            // Emit an event for the token whitelist update
+            emit CurrencyWhitelisted(
+                currencyTokens[index],
                 msg.sender,
                 isWhitelisted[index]
             );
