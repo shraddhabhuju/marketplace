@@ -11,9 +11,11 @@ import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/met
 import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./extensions/CurrencyTransferLib.sol";
 import "hardhat/console.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract Marketplace is
     IMarketplace,
+    Initializable,
     AccessControlEnumerableUpgradeable,
     ReentrancyGuardUpgradeable
 {
@@ -32,7 +34,7 @@ contract Marketplace is
     /// @dev Only lister role holders can create listings, when listings are restricted by lister address.
     bytes32 private constant LISTER_ROLE = keccak256("LISTER_ROLE");
     /// @dev The address of the native token wrapper contract.
-    address private immutable nativeTokenWrapper;
+    address private nativeTokenWrapper;
 
     /// @dev whitelister who can whitelist the currency that can be used in the marketplace
     bytes32 private constant CURRENCY_WHITELISTER_ROLE =
@@ -70,24 +72,25 @@ contract Marketplace is
                     Constructor + initializer logic
     //////////////////////////////////////////////////////////////*/
 
-    constructor(address _nativeTokenWrapper) initializer {
-        nativeTokenWrapper = _nativeTokenWrapper;
-    }
-
     /// @dev Initializes the contract, like a constructor.
     function initialize(
         address _defaultAdmin,
         address _platformFeeRecipient,
-        uint256 _platformFeeBps
+        uint256 _platformFeeBps,
+        address _nativeTokenWrapper
     ) external initializer {
         __ReentrancyGuard_init();
-
+        __AccessControl_init();
+        nativeTokenWrapper = _nativeTokenWrapper;
         platformFeeBps = uint64(_platformFeeBps);
         platformFeeRecipient = _platformFeeRecipient;
-        _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
-        _grantRole(CURRENCY_WHITELISTER_ROLE, _defaultAdmin);
 
+        _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
+        console.log("_defaultAdmin",_defaultAdmin);
+        
         _setRoleAdmin(CURRENCY_WHITELISTER_ROLE, DEFAULT_ADMIN_ROLE);
+       
+       
     }
 
     /// @dev Lets a token owner list tokens for sale: Direct Listing
@@ -543,8 +546,7 @@ contract Marketplace is
     function updateWhitelistedTokens(
         address[] memory tokens,
         bool[] memory isWhitelisted
-    ) external override {
-        _checkRole(CURRENCY_WHITELISTER_ROLE, _msgSender());
+    ) external override onlyRole(CURRENCY_WHITELISTER_ROLE) {
         uint tokensLength = tokens.length;
         uint isWhitelistedLength = isWhitelisted.length;
 

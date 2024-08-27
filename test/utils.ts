@@ -2,7 +2,7 @@
 
 import { getContractFactory } from "@nomicfoundation/hardhat-ethers/types";
 import { Signer } from "ethers";
-import hre from "hardhat";
+import hre, { upgrades } from "hardhat";
 import { Marketplace } from "../typechain-types";
 
 // create listing
@@ -30,11 +30,19 @@ async function deployErc1155Token(owner: Signer, ownerAddress: string) {
 }
 
 //deploy markteplace contract
-async function deployMarketplace(owner: Signer, ownerAddress: string) {
+async function deployMarketplace(
+  owner: Signer,
+  ownerAddress: string,
+  platformFeeRecipient: string
+) {
   const Marketplace = await hre.ethers.getContractFactory("Marketplace");
-  const MarketplaceDeploy = await Marketplace.connect(owner).deploy(
-    ownerAddress
+  const MarketplaceDeploy = await upgrades.deployProxy(
+    Marketplace,
+    [ownerAddress, platformFeeRecipient, 500, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"],
+    { initializer: "initialize" }
   );
+  await MarketplaceDeploy.waitForDeployment()
+
   return MarketplaceDeploy;
 }
 
@@ -44,12 +52,25 @@ async function whitelistTokens(
   tokens: string[],
   status: boolean[]
 ) {
-  const whitelistTokenTx = await Marketplace.updateWhitelistedTokens(
+  console.log("🚀 ~ signer:", signer)
+
+  const whitelistTokenTx = await Marketplace.connect(signer).updateWhitelistedTokens(
     tokens,
     status
   );
   await whitelistTokenTx.wait();
   return whitelistTokenTx;
+}
+
+async function grantWhitelisterRole(
+  Marketplace: Marketplace,
+  owner: Signer,
+  whitelister: string
+) {
+  const grantRole = await Marketplace.connect(owner).setCurrencyWhitelister(
+    whitelister
+  );
+  await grantRole.wait();
 }
 
 export {
@@ -58,4 +79,5 @@ export {
   deployErc1155Token,
   whitelistTokens,
   deployMarketplace,
+  grantWhitelisterRole,
 };

@@ -10,6 +10,6 @@ contract MyToken is ERC20, Ownable, ERC20Permit {
     constructor(
         address initialOwner
     ) ERC20("MyToken", "MTK") Ownable(initialOwner) ERC20Permit("MyToken") {
-        _mint(initialOwner, 10000000000000000000000000000);
+        _mint(initialOwner, 100000000000000000000000000000000000000000000000000000);
     }
 }
