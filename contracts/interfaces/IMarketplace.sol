@@ -43,7 +43,7 @@ interface IMarketplace is IPlatformFee {
      */
     struct BulkListingParameters {
         address assetContract;
-        uint256[]  tokenIds;
+        uint256[] tokenIds;
         uint256 startTime;
         uint256 quantityToList;
         address currencyToAccept;
