@@ -14,7 +14,7 @@ interface IMarketplace is IPlatformFee {
      * @dev Parameters used for creating a new listing.
      *
      * @param assetContract         The address of the NFT contract.
-     * @param tokenId               The ID of the NFT to list for sale.
+     * @param tokenId               The ID of the NFT to list for sale. //0 for erc20 token
      * @param startTime             The timestamp after which the listing becomes active.
      * @param quantityToList        The number of NFTs to list. Defaults to `1` for ERC721 tokens.
      * @param currencyToAccept      The currency accepted for the listing. For direct listings, this is the payment currency. For auctions, it's the bidding currency.

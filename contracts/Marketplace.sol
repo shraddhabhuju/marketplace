@@ -10,6 +10,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
 import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./extensions/CurrencyTransferLib.sol";
+import "hardhat/console.sol";
 
 contract Marketplace is
     IMarketplace,
@@ -44,7 +45,7 @@ contract Marketplace is
 
     /// @dev Checks whether caller is a listing creator.
     modifier onlyListingCreator(uint256 _listingId) {
-        if (listings[_listingId].tokenOwner == msg.sender) {
+        if (listings[_listingId].tokenOwner != msg.sender) {
             revert NotListOwner(listings[_listingId].tokenOwner, msg.sender);
         }
         _;
@@ -52,14 +53,14 @@ contract Marketplace is
 
     /// @dev Checks whether a listing exists.
     modifier onlyExistingListing(uint256 _listingId) {
-        if (listings[_listingId].assetContract != address(0)) {
+        if (listings[_listingId].assetContract == address(0)) {
             revert ListDoesntExists();
         }
         _;
     }
 
     modifier isWhitelistedToken(address tokenAddress) {
-        if (tokenAddress != address(0) && !whitelistedTokens[tokenAddress]) {
+        if (tokenAddress == address(0) && !whitelistedTokens[tokenAddress]) {
             revert InvalidToken(tokenAddress);
         }
         _;
@@ -84,6 +85,7 @@ contract Marketplace is
         platformFeeBps = uint64(_platformFeeBps);
         platformFeeRecipient = _platformFeeRecipient;
         _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
+        _grantRole(CURRENCY_WHITELISTER_ROLE, _defaultAdmin);
 
         _setRoleAdmin(CURRENCY_WHITELISTER_ROLE, DEFAULT_ADMIN_ROLE);
     }
@@ -95,13 +97,15 @@ contract Marketplace is
         totalListings += 1;
 
         address tokenOwner = msg.sender;
+
         TokenType tokenTypeOfListing = getTokenType(_params.assetContract);
+
         uint256 tokenAmountToList = getSafeQuantity(
             tokenTypeOfListing,
             _params.quantityToList
         );
 
-        if (tokenAmountToList > 0) {
+        if (tokenAmountToList < 0) {
             revert InvalidQuantity();
         }
         if (
@@ -163,7 +167,7 @@ contract Marketplace is
             _quantityToList
         );
 
-        if (safeNewQuantity != 0) {
+        if (safeNewQuantity == 0) {
             revert InvalidQuantity();
         }
 
@@ -232,7 +236,7 @@ contract Marketplace is
     ) internal view {
         address market = address(this);
         bool isValid;
-
+        console.log(" ~ isValid:", isValid);
         if (_tokenType == TokenType.ERC1155) {
             isValid =
                 IERC1155(_assetContract).balanceOf(_tokenOwner, _tokenId) >=
@@ -246,14 +250,8 @@ contract Marketplace is
                         _tokenOwner,
                         market
                     ));
-        } else if (_tokenType == TokenType.ERC20) {
-            isValid =
-                IERC1155(_assetContract).balanceOf(_tokenOwner, _tokenId) >=
-                _quantity &&
-                IERC1155(_assetContract).isApprovedForAll(_tokenOwner, market);
         }
-
-        if (isValid) {
+        if (!isValid) {
             revert InvalidTokenType();
         }
     }
@@ -423,21 +421,21 @@ contract Marketplace is
     ) internal {
         // Check whether a valid quantity of listed tokens is being bought.
         if (
-            _listing.quantity > 0 &&
-            _quantityToBuy > 0 &&
-            _quantityToBuy <= _listing.quantity
+            _listing.quantity < 0 &&
+            _quantityToBuy < 0 &&
+            _quantityToBuy >= _listing.quantity
         ) {
             revert InvalidTokenAmount(_quantityToBuy, _listing.quantity);
         }
 
         // Check if sale is made within the listing window.
-        if (block.timestamp > _listing.startTime) {
+        if (block.timestamp < _listing.startTime) {
             revert ListingNotStarted();
         }
 
         // Check: buyer owns and has approved sufficient currency for sale.
         if (_currency == CurrencyTransferLib.NATIVE_TOKEN) {
-            if (msg.value == settledTotalPrice) {
+            if (msg.value != settledTotalPrice) {
                 revert InsufficentBalance(msg.value, settledTotalPrice);
             }
         } else {
@@ -461,9 +459,9 @@ contract Marketplace is
         uint256 _currencyAmountToCheckAgainst
     ) internal view {
         if (
-            IERC20(_currency).balanceOf(_addrToCheck) >=
+            IERC20(_currency).balanceOf(_addrToCheck) <
             _currencyAmountToCheckAgainst &&
-            IERC20(_currency).allowance(_addrToCheck, address(this)) >=
+            IERC20(_currency).allowance(_addrToCheck, address(this)) <
             _currencyAmountToCheckAgainst
         ) {
             revert InsufficientERC20Balance(
@@ -506,12 +504,6 @@ contract Marketplace is
             IERC165(_assetContract).supportsInterface(type(IERC721).interfaceId)
         ) {
             tokenType = TokenType.ERC721;
-        } else if (
-            IERC165(_assetContract).supportsInterface(type(IERC20).interfaceId)
-        ) {
-            tokenType = TokenType.ERC20;
-        } else {
-            revert InvalidTokenType();
         }
     }
 
