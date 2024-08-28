@@ -5,11 +5,9 @@ import "./IPlatformFee.sol";
 
 interface IMarketplace is IPlatformFee {
     enum TokenType {
-        ERC20,
+        ERC20Variant,
         ERC721,
-        ERC1155,
-        ERC3643,
-        ERC1400
+        ERC1155
     }
 
     /**

@@ -6,6 +6,7 @@ import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC1155} from "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import {IERC20Variant} from "./interfaces/IERC20Variant.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
 import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
@@ -292,6 +293,12 @@ contract Marketplace is
                         _tokenOwner,
                         market
                     ));
+        } else if (_tokenType == TokenType.ERC20Variant) {
+            isValid =
+                IERC20Variant(_assetContract).balanceOf(_tokenOwner) >=
+                _quantity &&
+                (IERC20Variant(_assetContract).allowance(_tokenOwner, market) >=
+                    _quantity);
         }
         if (!isValid) {
             revert InvalidTokenType();
@@ -304,7 +311,7 @@ contract Marketplace is
         uint256[] memory _quantityToBuy,
         address _currency,
         uint256[] memory _totalPrice
-    ) external payable override nonReentrant  {
+    ) external payable override nonReentrant {
         uint listingsLength = _listingIds.length;
         uint quantityToBuyLength = _quantityToBuy.length;
         uint totalPriceLength = _totalPrice.length;
@@ -334,7 +341,7 @@ contract Marketplace is
         uint256 _quantityToBuy,
         address _currency,
         uint256 _totalPrice
-    ) external payable override nonReentrant  {
+    ) external payable override nonReentrant {
         _buy(_listingId, _buyFor, _quantityToBuy, _currency, _totalPrice);
     }
 
@@ -431,6 +438,9 @@ contract Marketplace is
                 _listing.tokenId,
                 ""
             );
+        } else {
+            IERC20Variant(_listing.assetContract).transferFrom(from, to, value);
+            (_from, _to, _quantity);
         }
     }
 
@@ -586,6 +596,9 @@ contract Marketplace is
             IERC165(_assetContract).supportsInterface(type(IERC721).interfaceId)
         ) {
             tokenType = TokenType.ERC721;
+        }
+        else{
+            tokenType = TokenType.ERC20Variant
         }
     }
 
