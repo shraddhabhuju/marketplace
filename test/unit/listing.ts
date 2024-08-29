@@ -6,7 +6,7 @@ import {
   deployErc721Token,
   deployMarketplace,
   grantWhitelisterRole,
-  whitelistTokens,
+  whitelistCurrencyTokens,
 } from "../utils";
 import {
   Marketplace,
@@ -86,7 +86,7 @@ describe("Deployments ", function () {
     const status = [true];
     await grantWhitelisterRole(listingContract, owner, ownerAddress);
 
-    const whitelistTx = await whitelistTokens(
+    const whitelistTx = await whitelistCurrencyTokens(
       listingContract,
       owner,
       tokens,
@@ -387,7 +387,7 @@ describe("Deployments ", function () {
       await grantWhitelisterRole(listingContract, owner, ownerAddress);
 
       expect(contractStatusBefore).to.equal(false);
-      const whitelistTx = await whitelistTokens(
+      const whitelistTx = await whitelistCurrencyTokens(
         listingContract,
         owner,
         tokens,
