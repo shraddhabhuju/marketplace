@@ -47,7 +47,7 @@ async function deployMarketplace(
   return MarketplaceDeploy;
 }
 
-async function whitelistTokens(
+async function whitelistCurrencyTokens(
   Marketplace: Marketplace,
   signer: Signer,
   tokens: string[],
@@ -56,6 +56,22 @@ async function whitelistTokens(
   console.log("🚀 ~ signer:", signer)
 
   const whitelistTokenTx = await Marketplace.connect(signer).updateWhitelistedCurrency(
+    tokens,
+    status
+  );
+  await whitelistTokenTx.wait();
+  return whitelistTokenTx;
+}
+
+async function whitelistListingTokens(
+  Marketplace: Marketplace,
+  signer: Signer,
+  tokens: string[],
+  status: boolean[]
+) {
+  console.log("🚀 ~ signer:", signer)
+
+  const whitelistTokenTx = await Marketplace.connect(signer).updateWhitelistedTokens(
     tokens,
     status
   );
@@ -78,7 +94,8 @@ export {
   deployErc20Token,
   deployErc721Token,
   deployErc1155Token,
-  whitelistTokens,
+  whitelistCurrencyTokens,
   deployMarketplace,
   grantWhitelisterRole,
+  whitelistListingTokens,
 };
