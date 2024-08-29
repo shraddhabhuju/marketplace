@@ -3,11 +3,11 @@ import {
   grantWhitelisterRole,
   whitelistCurrencyTokens,
 } from "../../test/utils";
-
+var contractJson = require("../../contract.json");
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const marketplaceContract = "0x315B1fAF222660ca0981E442aC5e8a671f3dEddd";
+  const marketplaceContract = contractJson.marketplaceContract;
   const tokenAddresses = ["0x9ADAE808846746223BE9f1cf27E80bF20D2672DB"];
   const status = [true];
   console.log("Interacting contract with the account:", deployer.address);

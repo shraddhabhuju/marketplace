@@ -5,13 +5,12 @@
   "license": "MIT",
   "scripts": {
     "test": "npx hardhat test",
-    "deployMockNFT" : "npx hardhat ignition --network bsc_test ignition/modules/1_deploy_mock_nft.ts",
+    "deployMockNFT": "npx hardhat ignition --network bsc_test ignition/modules/1_deploy_mock_nft.ts",
     "deployMOCKERC1155": "npx hardhat ignition --network bsc_test ignition/modules/2_deploy_mock_erc1155.ts",
     "deployMOCKCurrency": "npx hardhat ignition --network bsc_test ignition/modules/3_deploy_mock_alternative_currency.ts",
     "deployMOCKSoulBoundNft": "npx hardhat ignition --network bsc_test ignition/modules/4_deploy_mock_soul_bound_Nft.ts",
     "deployMarketplace": "npx hardhat run --network bsc_test ignition/modules/5_deploy_marketplace.ts",
     "deployWhitelistCurrency": "npx hardhat run --network bsc_test ignition/modules/6_whitelist_currency.ts"
-
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
@@ -39,6 +38,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.2",
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "fs": "^0.0.1-security"
   }
 }

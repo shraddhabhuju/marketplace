@@ -2,6 +2,8 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { ZeroAddress } from "ethers";
 import { deployMarketplace } from "../../test/utils";
 import { ethers } from "hardhat";
+import { writeFileSync } from "fs";
+var deployedAddresses = require("../deployments/chain-97/deployed_addresses.json");
 
 // const MarketplaceModule = buildModule("MarketplaceModule", (m) => {
 //   const _defaultAdmin = "0xf6ff4c6028dfea5836eaa89377d6ad4622e3ab5d";
@@ -45,11 +47,12 @@ async function main() {
     _platformFeeRecipient,
     _soulBoundNftAddress
   );
+  deployedAddresses.marketplaceContract = MarketplaceDeploy.target;
+  console.log("🚀 ~ main ~ MarketplaceDeploy.address:", MarketplaceDeploy.target)
 
-  console.log("Marketplace  Deployed to address:", MarketplaceDeploy);
-
+  console.log("Marketplace  Deployed to address:", MarketplaceDeploy.target);
+  writeFileSync("contract.json", JSON.stringify(deployedAddresses));
 }
-
 
 main().catch((error) => {
   console.error(error);
