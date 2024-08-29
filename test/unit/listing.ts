@@ -1,4 +1,4 @@
-import { ethers, Signer, toBigInt } from "ethers";
+import { ethers, Signer, toBigInt, ZeroAddress } from "ethers";
 import hre from "hardhat";
 import {
   deployErc1155Token,
@@ -77,9 +77,21 @@ describe("Deployments ", function () {
     listingContract = await deployMarketplace(
       owner,
       ownerAddress,
-      platformFeeRecipientAddress
+      platformFeeRecipientAddress,
+      SoulBoundNftTokenAddress
     );
     listingContractAddress = await listingContract.getAddress();
+
+    const tokens = [ZeroAddress];
+    const status = [true];
+    await grantWhitelisterRole(listingContract, owner, ownerAddress);
+
+    const whitelistTx = await whitelistTokens(
+      listingContract,
+      owner,
+      tokens,
+      status
+    );
   });
 
   describe("Erc721 ", function () {
@@ -90,7 +102,7 @@ describe("Deployments ", function () {
         tokenId: 1, //uint256 ;
         startTime: startTime, //  startTime;
         quantityToList: 1, //uint256 quantityToList;
-        currencyToAccept: "0x0000000000000000000000000000000000000000", //address currencyToAccept;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
         buyoutPricePerToken: 100000, //uint256 buyoutPricePerToken;
       };
       const approveTx = await erc721Token
@@ -120,7 +132,7 @@ describe("Deployments ", function () {
       const listingId = 0;
       const quantityToList = 1;
       const buyoutPricePerToken = BigInt(10000000000000);
-      const currencyToAccept = "0x0000000000000000000000000000000000000000";
+      const currencyToAccept = ZeroAddress;
 
       const updateListingTx = await listingContract
         .connect(owner)
@@ -163,9 +175,7 @@ describe("Deployments ", function () {
       );
       expect(listing.startTime).to.equal(0);
       expect(listing.quantity).to.equal(0);
-      expect(listing.currency).to.equal(
-        "0x0000000000000000000000000000000000000000"
-      );
+      expect(listing.currency).to.equal(ZeroAddress);
       expect(listing.buyoutPricePerToken).to.equal(0);
     });
 
@@ -176,9 +186,10 @@ describe("Deployments ", function () {
         tokenId: 1, //uint256 ;
         startTime: startTime, //  startTime;
         quantityToList: 1, //uint256 quantityToList;
-        currencyToAccept: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", //address currencyToAccept;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
         buyoutPricePerToken: 100000, //uint256 buyoutPricePerToken;
       };
+
       const approveTx = await erc721Token
         .connect(owner)
         .setApprovalForAll(listingContractAddress, true);
@@ -230,7 +241,7 @@ describe("Deployments ", function () {
         tokenId: 1, //uint256 ;
         startTime: startTime, //  startTime;
         quantityToList: 10, //uint256 quantityToList;
-        currencyToAccept: "0x0000000000000000000000000000000000000000", //address currencyToAccept;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
         buyoutPricePerToken: 100000, //uint256 buyoutPricePerToken;
       };
       const approveTx = await erc115Token
@@ -260,7 +271,7 @@ describe("Deployments ", function () {
       const listingId = 2;
       const quantityToList = 100;
       const buyoutPricePerToken = BigInt(10000000);
-      const currencyToAccept = "0x0000000000000000000000000000000000000000";
+      const currencyToAccept = ZeroAddress;
 
       const updateListingTx = await listingContract
         .connect(owner)
@@ -303,9 +314,7 @@ describe("Deployments ", function () {
       );
       expect(listing.startTime).to.equal(0);
       expect(listing.quantity).to.equal(0);
-      expect(listing.currency).to.equal(
-        "0x0000000000000000000000000000000000000000"
-      );
+      expect(listing.currency).to.equal(ZeroAddress);
       expect(listing.buyoutPricePerToken).to.equal(0);
     });
 
@@ -316,7 +325,7 @@ describe("Deployments ", function () {
         tokenId: 1, //uint256 ;
         startTime: startTime, //  startTime;
         quantityToList: 100, //uint256 quantityToList;
-        currencyToAccept: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE", //address currencyToAccept;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
         buyoutPricePerToken: 100000, //uint256 buyoutPricePerToken;
       };
       const approveTx = await erc115Token
@@ -371,9 +380,10 @@ describe("Deployments ", function () {
       const tokens = [alternativeCurrencyAddress];
       const status = [true];
 
-      const contractStatusBefore = await listingContract.whitelistedTokens(
-        alternativeCurrencyAddress
-      );
+      const contractStatusBefore =
+        await listingContract.whitelistedCurrencyTokens(
+          alternativeCurrencyAddress
+        );
       await grantWhitelisterRole(listingContract, owner, ownerAddress);
 
       expect(contractStatusBefore).to.equal(false);
@@ -383,9 +393,10 @@ describe("Deployments ", function () {
         tokens,
         status
       );
-      const contractStatusAfter = await listingContract.whitelistedTokens(
-        alternativeCurrencyAddress
-      );
+      const contractStatusAfter =
+        await listingContract.whitelistedCurrencyTokens(
+          alternativeCurrencyAddress
+        );
       expect(contractStatusAfter).to.equal(true);
     });
     it("buy erc721 Token with alternative currency  ", async function () {
@@ -497,6 +508,162 @@ describe("Deployments ", function () {
         1
       );
       expect(balanceOfBuyerAfter).to.equal(200);
+    });
+  });
+  describe("Bulk Erc721 listing ", function () {
+    it("Create Bulk listing for erc721 Token", async function () {
+      const startTime = (await time.latest()) + 10;
+      const listingParams = {
+        assetContract: erc721TokenAddress, //address assetContract;
+        tokenIds: [3, 4, 5, 6, 7, 8, 9], //uint256 ;
+        startTime: startTime, //  startTime;
+        quantityToList: [1, 1, 1, 1, 1, 1, 1], //uint256 quantityToList;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
+        buyoutPricePerToken: [10000, 20000, 30000, 40000, 10000, 10000, 10000], //uint256 buyoutPricePerToken;
+      };
+      const approveTx = await erc721Token
+        .connect(owner)
+        .setApprovalForAll(listingContractAddress, true);
+      await approveTx.wait();
+      const createErc20ListingTx = await listingContract.createMultipleListing(
+        listingParams
+      );
+      const totalListings = await listingContract.totalListings();
+
+      expect(totalListings).to.equal(13);
+      const listing1 = await listingContract.listings(6);
+      expect(listing1.listingId).to.equal(6);
+      expect(listing1.tokenOwner).to.equal(ownerAddress);
+      expect(listing1.assetContract).to.equal(erc721TokenAddress);
+      expect(listing1.tokenId).to.equal(listingParams.tokenIds[0]);
+      expect(listing1.startTime).to.equal(startTime);
+      expect(listing1.quantity).to.equal(listingParams.quantityToList[0]);
+      expect(listing1.currency).to.equal(listingParams.currencyToAccept);
+      expect(listing1.buyoutPricePerToken).to.equal(
+        listingParams.buyoutPricePerToken[0]
+      );
+
+      const listing2 = await listingContract.listings(7);
+      expect(listing2.listingId).to.equal(7);
+      expect(listing2.tokenOwner).to.equal(ownerAddress);
+      expect(listing2.assetContract).to.equal(erc721TokenAddress);
+      expect(listing2.tokenId).to.equal(listingParams.tokenIds[1]);
+      expect(listing2.startTime).to.equal(startTime);
+      expect(listing2.quantity).to.equal(listingParams.quantityToList[1]);
+      expect(listing2.currency).to.equal(listingParams.currencyToAccept);
+      expect(listing2.buyoutPricePerToken).to.equal(
+        listingParams.buyoutPricePerToken[1]
+      );
+      const listing3 = await listingContract.listings(8);
+      expect(listing3.listingId).to.equal(8);
+      expect(listing3.tokenOwner).to.equal(ownerAddress);
+      expect(listing3.assetContract).to.equal(erc721TokenAddress);
+      expect(listing3.tokenId).to.equal(listingParams.tokenIds[2]);
+      expect(listing3.startTime).to.equal(startTime);
+      expect(listing3.quantity).to.equal(listingParams.quantityToList[2]);
+      expect(listing3.currency).to.equal(listingParams.currencyToAccept);
+      expect(listing3.buyoutPricePerToken).to.equal(
+        listingParams.buyoutPricePerToken[2]
+      );
+
+      const listing4 = await listingContract.listings(9);
+      expect(listing4.listingId).to.equal(9);
+      expect(listing4.tokenOwner).to.equal(ownerAddress);
+      expect(listing4.assetContract).to.equal(erc721TokenAddress);
+      expect(listing4.tokenId).to.equal(listingParams.tokenIds[3]);
+      expect(listing4.startTime).to.equal(startTime);
+      expect(listing4.quantity).to.equal(listingParams.quantityToList[3]);
+      expect(listing4.currency).to.equal(listingParams.currencyToAccept);
+      expect(listing4.buyoutPricePerToken).to.equal(
+        listingParams.buyoutPricePerToken[3]
+      );
+
+      const listing5 = await listingContract.listings(10);
+      expect(listing5.listingId).to.equal(10);
+      expect(listing5.tokenOwner).to.equal(ownerAddress);
+      expect(listing5.assetContract).to.equal(erc721TokenAddress);
+      expect(listing5.tokenId).to.equal(listingParams.tokenIds[4]);
+      expect(listing5.startTime).to.equal(startTime);
+      expect(listing5.quantity).to.equal(listingParams.quantityToList[4]);
+      expect(listing5.currency).to.equal(listingParams.currencyToAccept);
+      expect(listing5.buyoutPricePerToken).to.equal(
+        listingParams.buyoutPricePerToken[4]
+      );
+    });
+    it("update listing parameters", async function () {
+      const startTime = (await time.latest()) + 10;
+      const listingId = 6;
+      const quantityToList = 1;
+      const buyoutPricePerToken = BigInt(1000000000);
+      const currencyToAccept = ZeroAddress;
+
+      const updateListingTx = await listingContract
+        .connect(owner)
+        .updateListing(
+          listingId,
+          quantityToList,
+          buyoutPricePerToken,
+          currencyToAccept,
+          startTime
+        );
+      const totalListings = await listingContract.totalListings();
+
+      expect(totalListings).to.equal(13);
+      const listing = await listingContract.listings(6);
+      expect(listing.listingId).to.equal(6);
+      expect(listing.tokenOwner).to.equal(ownerAddress);
+      expect(listing.assetContract).to.equal(erc721TokenAddress);
+      expect(listing.startTime).to.equal(startTime);
+      expect(listing.quantity).to.equal(quantityToList);
+      expect(listing.currency).to.equal(currencyToAccept);
+      expect(listing.buyoutPricePerToken).to.equal(buyoutPricePerToken);
+    });
+
+    it("cancel listing", async function () {
+      const listingId = 6;
+
+      const cancelListingTx = await listingContract
+        .connect(owner)
+        .cancelDirectListing(listingId);
+      const totalListings = await listingContract.totalListings();
+
+      expect(totalListings).to.equal(13);
+      const listing = await listingContract.listings(6);
+      expect(listing.listingId).to.equal(0);
+      expect(listing.tokenOwner).to.equal(
+        "0x0000000000000000000000000000000000000000"
+      );
+      expect(listing.assetContract).to.equal(
+        "0x0000000000000000000000000000000000000000"
+      );
+      expect(listing.startTime).to.equal(0);
+      expect(listing.quantity).to.equal(0);
+      expect(listing.currency).to.equal(ZeroAddress);
+      expect(listing.buyoutPricePerToken).to.equal(0);
+    });
+
+    it("buy erc721 Token with Eth ", async function () {
+      const startTime = (await time.latest()) + 10;
+
+      const listingIds = [7, 12];
+      const buyFor = await otherAccount.getAddress();
+      const quantityToBuy = [1, 1];
+      const currency = ZeroAddress;
+      const totalPrice = [20000 * quantityToBuy[0], 10000 * quantityToBuy[1]];
+      const totalValue = totalPrice[0]+totalPrice[1]
+      await time.increaseTo(startTime + 20);
+      const ownershipBeforeApproval = await erc721Token.ownerOf(4);
+      expect(ownershipBeforeApproval).to.equal(ownerAddress);
+      const buyTx = await listingContract
+        .connect(otherAccount)
+        .bulkBuy(listingIds, buyFor, quantityToBuy, currency, totalPrice, {
+          value: totalValue,
+        });
+
+      const ownershipAfterApproval = await erc721Token.ownerOf(
+        4
+      );
+      expect(ownershipAfterApproval).to.equal(otherAccountAddress);
     });
   });
 });

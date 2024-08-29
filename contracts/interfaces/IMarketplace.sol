@@ -43,9 +43,9 @@ interface IMarketplace is IPlatformFee {
         address assetContract;
         uint256[] tokenIds;
         uint256 startTime;
-        uint256 quantityToList;
+        uint256[] quantityToList;
         address currencyToAccept;
-        uint256 buyoutPricePerToken;
+        uint256[] buyoutPricePerToken;
     }
 
     /**
@@ -80,13 +80,13 @@ interface IMarketplace is IPlatformFee {
     error InvalidBulkBuyData();
     error InvalidQuantity();
     error ListDoesntExists();
+    error CurrencyNotWhitelisted(address _currency, bool isWhitelisted);
     error InsufficientERC20Balance(
         address addressToCheck,
         address currency,
         uint256 currencyAmountToCheckAgainst
     );
     error NotListOwner(address actualOwner, address owner);
-    error NotLister();
     error InvalidStartTime(uint256 currentTimeStamp, uint256 startTime);
     error InvalidTokenType();
     error InvalidTokenAmount(uint256 quantityToBuy, uint256 listingQuantity);

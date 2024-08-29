@@ -10,10 +10,25 @@ contract MyTokenNFT is ERC721, Ownable {
     constructor(
         address initialOwner
     ) ERC721("MyTokenNFT", "MTK") Ownable(initialOwner) {
-        tokenId++;
+        tokenId++;//1
         _safeMint(initialOwner,tokenId);
-        tokenId++;
-        _safeMint(initialOwner, 2);
+        tokenId++;//2
+        _safeMint(initialOwner, tokenId);
+        tokenId++;//3
+        _safeMint(initialOwner, tokenId);
+        tokenId++;//4
+        _safeMint(initialOwner, tokenId);
+         tokenId++;//5
+        _safeMint(initialOwner, tokenId);
+         tokenId++;//6
+        _safeMint(initialOwner, tokenId);
+         tokenId++;//7
+        _safeMint(initialOwner, tokenId);
+         tokenId++;//8
+        _safeMint(initialOwner, tokenId);
+         tokenId++;//9
+        _safeMint(initialOwner, tokenId);
+        
     }
 
     function safeMint(address to) public onlyOwner {

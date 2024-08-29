@@ -32,8 +32,6 @@ contract Marketplace is
     /// @dev Total number of listings ever created in the marketplace.
     uint256 public totalListings;
 
-    /// @dev Only lister role holders can create listings, when listings are restricted by lister address.
-    bytes32 private constant LISTER_ROLE = keccak256("LISTER_ROLE");
     /// @dev The address of the native token wrapper contract.
     address private nativeTokenWrapper;
     // S
@@ -116,6 +114,12 @@ contract Marketplace is
         BulkListingParameters memory _params
     ) external override hasSoulBoundNFT {
         uint tokensLength = _params.tokenIds.length;
+        uint quantityToBuyLength = _params.quantityToList.length;
+        uint totalPriceLength = _params.buyoutPricePerToken.length;
+        if (
+            tokensLength != quantityToBuyLength &&
+            quantityToBuyLength != totalPriceLength
+        ) revert InvalidBulkBuyData();
 
         // Update the whitelist status of each token
         for (uint index; index < tokensLength; ) {
@@ -123,9 +127,9 @@ contract Marketplace is
                 assetContract: _params.assetContract,
                 tokenId: _params.tokenIds[index],
                 startTime: _params.startTime,
-                quantityToList: _params.quantityToList,
+                quantityToList: _params.quantityToList[index],
                 currencyToAccept: _params.currencyToAccept,
-                buyoutPricePerToken: _params.buyoutPricePerToken
+                buyoutPricePerToken: _params.buyoutPricePerToken[index]
             });
             _createSingleListing(params);
             unchecked {
@@ -151,11 +155,6 @@ contract Marketplace is
 
         if (tokenAmountToList < 0) {
             revert InvalidQuantity();
-        }
-        if (
-            hasRole(LISTER_ROLE, address(0)) || hasRole(LISTER_ROLE, msg.sender)
-        ) {
-            revert NotLister();
         }
 
         uint256 startTime = _params.startTime;
@@ -315,6 +314,8 @@ contract Marketplace is
         uint listingsLength = _listingIds.length;
         uint quantityToBuyLength = _quantityToBuy.length;
         uint totalPriceLength = _totalPrice.length;
+        uint256 sentValue= msg.value;
+        
         if (
             listingsLength != quantityToBuyLength &&
             quantityToBuyLength != totalPriceLength
@@ -322,6 +323,9 @@ contract Marketplace is
 
         // Update the whitelist status of each token
         for (uint index; index < listingsLength; ) {
+            if (sentValue<_totalPrice[index]){
+                revert InsufficentBalance(sentValue, _totalPrice[index]);
+            }
             _buy(
                 _listingIds[index],
                 _buyFor,
@@ -329,10 +333,14 @@ contract Marketplace is
                 _currency,
                 _totalPrice[index]
             );
+            sentValue-=_totalPrice[index];
             unchecked {
                 ++index;
             }
+        
         }
+
+    
     }
 
     function buy(
@@ -342,6 +350,12 @@ contract Marketplace is
         address _currency,
         uint256 _totalPrice
     ) external payable override nonReentrant {
+        if (!whitelistedCurrencyTokens[_currency]) {
+            revert CurrencyNotWhitelisted(
+                _currency,
+                whitelistedCurrencyTokens[_currency]
+            );
+        }
         _buy(_listingId, _buyFor, _quantityToBuy, _currency, _totalPrice);
     }
 
@@ -357,12 +371,15 @@ contract Marketplace is
         address payer = msg.sender;
 
         // Check whether the settled total price and currency to use are correct.
-        require(
-            _currency == targetListing.currency &&
-                _totalPrice ==
-                (targetListing.buyoutPricePerToken * _quantityToBuy),
-            "!PRICE"
-        );
+        if (
+            _currency != targetListing.currency &&
+            _totalPrice != (targetListing.buyoutPricePerToken * _quantityToBuy)
+        ) {
+            revert InsufficentBalance(
+                _totalPrice,
+                targetListing.buyoutPricePerToken * _quantityToBuy
+            );
+        }
 
         executeSale(
             targetListing,
@@ -439,8 +456,11 @@ contract Marketplace is
                 ""
             );
         } else {
-            IERC20Variant(_listing.assetContract).transferFrom(from, to, value);
-            (_from, _to, _quantity);
+            IERC20Variant(_listing.assetContract).transferFrom(
+                _from,
+                _to,
+                _quantity
+            );
         }
     }
 
@@ -527,7 +547,7 @@ contract Marketplace is
 
         // Check: buyer owns and has approved sufficient currency for sale.
         if (_currency == CurrencyTransferLib.NATIVE_TOKEN) {
-            if (msg.value != settledTotalPrice) {
+            if (msg.value < settledTotalPrice) {
                 revert InsufficentBalance(msg.value, settledTotalPrice);
             }
         } else {
@@ -596,9 +616,8 @@ contract Marketplace is
             IERC165(_assetContract).supportsInterface(type(IERC721).interfaceId)
         ) {
             tokenType = TokenType.ERC721;
-        }
-        else{
-            tokenType = TokenType.ERC20Variant
+        } else {
+            tokenType = TokenType.ERC20Variant;
         }
     }
 

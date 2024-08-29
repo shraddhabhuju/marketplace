@@ -33,12 +33,13 @@ async function deployErc1155Token(owner: Signer, ownerAddress: string) {
 async function deployMarketplace(
   owner: Signer,
   ownerAddress: string,
-  platformFeeRecipient: string
+  platformFeeRecipient: string,
+  SoulBoundNftTokenAddress:string
 ) {
   const Marketplace = await hre.ethers.getContractFactory("Marketplace");
   const MarketplaceDeploy = await upgrades.deployProxy(
     Marketplace,
-    [ownerAddress, platformFeeRecipient, 500, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"],
+    [ownerAddress, platformFeeRecipient, 500, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",SoulBoundNftTokenAddress],
     { initializer: "initialize" }
   );
   await MarketplaceDeploy.waitForDeployment()
@@ -54,7 +55,7 @@ async function whitelistTokens(
 ) {
   console.log("🚀 ~ signer:", signer)
 
-  const whitelistTokenTx = await Marketplace.connect(signer).updateWhitelistedTokens(
+  const whitelistTokenTx = await Marketplace.connect(signer).updateWhitelistedCurrency(
     tokens,
     status
   );

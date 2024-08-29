@@ -16,7 +16,7 @@ library CurrencyTransferLib {
 
     /// @dev The address interpreted as native token of the chain.
     address public constant NATIVE_TOKEN =
-        0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+        address(0);
 
     /// @dev Transfers a given amount of currency.
     function transferCurrency(
