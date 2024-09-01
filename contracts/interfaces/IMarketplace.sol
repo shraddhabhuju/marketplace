@@ -19,6 +19,7 @@ interface IMarketplace is IPlatformFee {
      * @param quantityToList        The number of NFTs to list. Defaults to `1` for ERC721 tokens.
      * @param currencyToAccept      The currency accepted for the listing. For direct listings, this is the payment currency. For auctions, it's the bidding currency.
      * @param buyoutPricePerToken   The price per token for direct listings. For auctions, if a bid meets or exceeds this value multiplied by `quantityToList`, the auction ends immediately.
+     * @param isERC20    to createErc20 
      */
     struct ListingParameters {
         address assetContract;
@@ -27,6 +28,7 @@ interface IMarketplace is IPlatformFee {
         uint256 quantityToList;
         address currencyToAccept;
         uint256 buyoutPricePerToken;
+        bool isERC20; 
     }
 
     /**
@@ -46,6 +48,7 @@ interface IMarketplace is IPlatformFee {
         uint256[] quantityToList;
         address currencyToAccept;
         uint256[] buyoutPricePerToken;
+        bool isERC20;
     }
 
     /**

@@ -120,6 +120,9 @@ contract Marketplace is
             tokensLength != quantityToBuyLength &&
             quantityToBuyLength != totalPriceLength
         ) revert InvalidBulkBuyData();
+        if (_params.isERC20 && tokensLength > 1) {
+            revert InvalidBulkBuyData();
+        }
 
         // Update the whitelist status of each token
         for (uint index; index < tokensLength; ) {
@@ -129,7 +132,8 @@ contract Marketplace is
                 startTime: _params.startTime,
                 quantityToList: _params.quantityToList[index],
                 currencyToAccept: _params.currencyToAccept,
-                buyoutPricePerToken: _params.buyoutPricePerToken[index]
+                buyoutPricePerToken: _params.buyoutPricePerToken[index],
+                isERC20: _params.isERC20
             });
             _createSingleListing(params);
             unchecked {
@@ -143,10 +147,14 @@ contract Marketplace is
         // Get values to populate `Listing`.
         uint256 listingId = totalListings;
         totalListings += 1;
-
+        TokenType tokenTypeOfListing;
         address tokenOwner = msg.sender;
 
-        TokenType tokenTypeOfListing = getTokenType(_params.assetContract);
+        if (_params.isERC20) {
+            tokenTypeOfListing = TokenType.ERC20Variant;
+        } else {
+            tokenTypeOfListing = getTokenType(_params.assetContract);
+        }
 
         uint256 tokenAmountToList = getSafeQuantity(
             tokenTypeOfListing,
@@ -314,8 +322,8 @@ contract Marketplace is
         uint listingsLength = _listingIds.length;
         uint quantityToBuyLength = _quantityToBuy.length;
         uint totalPriceLength = _totalPrice.length;
-        uint256 sentValue= msg.value;
-        
+        uint256 sentValue = msg.value;
+
         if (
             listingsLength != quantityToBuyLength &&
             quantityToBuyLength != totalPriceLength
@@ -323,7 +331,7 @@ contract Marketplace is
 
         // Update the whitelist status of each token
         for (uint index; index < listingsLength; ) {
-            if (sentValue<_totalPrice[index]){
+            if (sentValue < _totalPrice[index]) {
                 revert InsufficentBalance(sentValue, _totalPrice[index]);
             }
             _buy(
@@ -333,14 +341,11 @@ contract Marketplace is
                 _currency,
                 _totalPrice[index]
             );
-            sentValue-=_totalPrice[index];
+            sentValue -= _totalPrice[index];
             unchecked {
                 ++index;
             }
-        
         }
-
-    
     }
 
     function buy(
@@ -616,8 +621,6 @@ contract Marketplace is
             IERC165(_assetContract).supportsInterface(type(IERC721).interfaceId)
         ) {
             tokenType = TokenType.ERC721;
-        } else {
-            tokenType = TokenType.ERC20Variant;
         }
     }
 
