@@ -11,8 +11,8 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/metatx/ERC2771ContextUpgradeable.sol";
 import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./extensions/CurrencyTransferLib.sol";
-import "hardhat/console.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "hardhat/console.sol";
 
 contract Marketplace is
     IMarketplace,
@@ -114,26 +114,27 @@ contract Marketplace is
         BulkListingParameters memory _params
     ) external override hasSoulBoundNFT {
         uint tokensLength = _params.tokenIds.length;
+        uint assetsLength = _params.assetContract.length;
         uint quantityToBuyLength = _params.quantityToList.length;
         uint totalPriceLength = _params.buyoutPricePerToken.length;
+        uint isERC20Length = _params.isERC20.length;
         if (
             tokensLength != quantityToBuyLength &&
-            quantityToBuyLength != totalPriceLength
+            quantityToBuyLength != totalPriceLength &&
+            totalPriceLength != isERC20Length &&
+            isERC20Length != assetsLength
         ) revert InvalidBulkBuyData();
-        if (_params.isERC20 && tokensLength > 1) {
-            revert InvalidBulkBuyData();
-        }
 
         // Update the whitelist status of each token
         for (uint index; index < tokensLength; ) {
             ListingParameters memory params = ListingParameters({
-                assetContract: _params.assetContract,
+                assetContract: _params.assetContract[index],
                 tokenId: _params.tokenIds[index],
                 startTime: _params.startTime,
                 quantityToList: _params.quantityToList[index],
                 currencyToAccept: _params.currencyToAccept,
                 buyoutPricePerToken: _params.buyoutPricePerToken[index],
-                isERC20: _params.isERC20
+                isERC20: _params.isERC20[index]
             });
             _createSingleListing(params);
             unchecked {
@@ -143,7 +144,9 @@ contract Marketplace is
     }
 
     /// @dev Lets a token owner list tokens for sale: Direct Listing
-    function _createSingleListing(ListingParameters memory _params) internal {
+    function _createSingleListing(
+        ListingParameters memory _params
+    ) internal isWhitelistedListingToken(_params.assetContract) {
         // Get values to populate `Listing`.
         uint256 listingId = totalListings;
         totalListings += 1;
@@ -205,13 +208,66 @@ contract Marketplace is
     }
 
     /// @dev Lets a listing's creator edit the listing's parameters.
+    function updateListings(
+        uint256[] memory _listingIds,
+        uint256[] memory _quantityToList,
+        uint256[] memory _buyoutPricePerToken,
+        address[] memory _currencyToAccept,
+        uint256[] memory _startTime
+    ) external override {
+        uint listingIdsLength = _listingIds.length;
+        uint quantityToListLength = _quantityToList.length;
+        uint buyoutPricePerTokenLength = _buyoutPricePerToken.length;
+        uint currencyToAcceptLength = _currencyToAccept.length;
+        uint startTimeLength = _startTime.length;
+
+        if (
+            listingIdsLength != quantityToListLength &&
+            quantityToListLength != buyoutPricePerTokenLength &&
+            buyoutPricePerTokenLength != currencyToAcceptLength &&
+            currencyToAcceptLength != startTimeLength
+        ) {
+            revert InvalidBulkUpdateData();
+        }
+
+        for (uint index; index < listingIdsLength; ) {
+            _updateListing(
+                _listingIds[index],
+                _quantityToList[index],
+                _buyoutPricePerToken[index],
+                _currencyToAccept[index],
+                _startTime[index]
+            );
+            unchecked {
+                ++index;
+            }
+        }
+    }
+
     function updateListing(
+        uint256 _listingIds,
+        uint256 _quantityToList,
+        uint256 _buyoutPricePerToken,
+        address _currencyToAccept,
+        uint256 _startTime
+    ) external override {
+        _updateListing(
+            _listingIds,
+            _quantityToList,
+            _buyoutPricePerToken,
+            _currencyToAccept,
+            _startTime
+        );
+    }
+
+    /// @dev Lets a listing's creator edit the listing's parameters.
+    function _updateListing(
         uint256 _listingId,
         uint256 _quantityToList,
         uint256 _buyoutPricePerToken,
         address _currencyToAccept,
         uint256 _startTime
-    ) external override onlyListingCreator(_listingId) {
+    ) internal onlyListingCreator(_listingId) {
         Listing memory targetListing = listings[_listingId];
         uint256 safeNewQuantity = getSafeQuantity(
             targetListing.tokenType,
@@ -316,32 +372,37 @@ contract Marketplace is
         uint256[] memory _listingIds,
         address _buyFor,
         uint256[] memory _quantityToBuy,
-        address _currency,
+        address[] memory _currency,
         uint256[] memory _totalPrice
     ) external payable override nonReentrant {
         uint listingsLength = _listingIds.length;
         uint quantityToBuyLength = _quantityToBuy.length;
+        uint currencyLength = _currency.length;
         uint totalPriceLength = _totalPrice.length;
         uint256 sentValue = msg.value;
 
         if (
             listingsLength != quantityToBuyLength &&
-            quantityToBuyLength != totalPriceLength
+            quantityToBuyLength != totalPriceLength &&
+            totalPriceLength != currencyLength
         ) revert InvalidBulkBuyData();
 
         // Update the whitelist status of each token
         for (uint index; index < listingsLength; ) {
-            if (sentValue < _totalPrice[index]) {
-                revert InsufficentBalance(sentValue, _totalPrice[index]);
+            if (_currency[index] == address(0)) {
+                if (sentValue < _totalPrice[index]) {
+                    revert InsufficentBalance(sentValue, _totalPrice[index]);
+                }
+                sentValue -= _totalPrice[index];
             }
+
             _buy(
                 _listingIds[index],
                 _buyFor,
                 _quantityToBuy[index],
-                _currency,
+                _currency[index],
                 _totalPrice[index]
             );
-            sentValue -= _totalPrice[index];
             unchecked {
                 ++index;
             }
@@ -355,12 +416,6 @@ contract Marketplace is
         address _currency,
         uint256 _totalPrice
     ) external payable override nonReentrant {
-        if (!whitelistedCurrencyTokens[_currency]) {
-            revert CurrencyNotWhitelisted(
-                _currency,
-                whitelistedCurrencyTokens[_currency]
-            );
-        }
         _buy(_listingId, _buyFor, _quantityToBuy, _currency, _totalPrice);
     }
 
@@ -374,7 +429,12 @@ contract Marketplace is
     ) internal onlyExistingListing(_listingId) {
         Listing memory targetListing = listings[_listingId];
         address payer = msg.sender;
-
+        if (!whitelistedCurrencyTokens[_currency]) {
+            revert CurrencyNotWhitelisted(
+                _currency,
+                whitelistedCurrencyTokens[_currency]
+            );
+        }
         // Check whether the settled total price and currency to use are correct.
         if (
             _currency != targetListing.currency &&
@@ -412,9 +472,11 @@ contract Marketplace is
             _currencyAmountToTransfer
         );
 
-        _targetListing.quantity -= _listingTokenAmountToTransfer;
-        listings[_targetListing.listingId] = _targetListing;
+        if (_listingTokenAmountToTransfer > _targetListing.quantity) {
+            revert InvalidQuantity();
+        }
 
+        _targetListing.quantity -= _listingTokenAmountToTransfer;
         payout(
             _payer,
             _targetListing.tokenOwner,

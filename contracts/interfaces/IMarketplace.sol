@@ -19,7 +19,7 @@ interface IMarketplace is IPlatformFee {
      * @param quantityToList        The number of NFTs to list. Defaults to `1` for ERC721 tokens.
      * @param currencyToAccept      The currency accepted for the listing. For direct listings, this is the payment currency. For auctions, it's the bidding currency.
      * @param buyoutPricePerToken   The price per token for direct listings. For auctions, if a bid meets or exceeds this value multiplied by `quantityToList`, the auction ends immediately.
-     * @param isERC20    to createErc20 
+     * @param isERC20    to createErc20
      */
     struct ListingParameters {
         address assetContract;
@@ -28,7 +28,7 @@ interface IMarketplace is IPlatformFee {
         uint256 quantityToList;
         address currencyToAccept;
         uint256 buyoutPricePerToken;
-        bool isERC20; 
+        bool isERC20;
     }
 
     /**
@@ -42,13 +42,13 @@ interface IMarketplace is IPlatformFee {
      * @param buyoutPricePerToken   The price per token for direct listings. For auctions, if a bid meets or exceeds this value multiplied by `quantityToList`, the auction ends immediately.
      */
     struct BulkListingParameters {
-        address assetContract;
+        address[] assetContract;
         uint256[] tokenIds;
         uint256 startTime;
         uint256[] quantityToList;
         address currencyToAccept;
         uint256[] buyoutPricePerToken;
-        bool isERC20;
+        bool[] isERC20;
     }
 
     /**
@@ -81,6 +81,7 @@ interface IMarketplace is IPlatformFee {
     error InvalidToken(address tokenAddress);
     error InvalidTokenData();
     error InvalidBulkBuyData();
+    error InvalidBulkUpdateData();
     error InvalidQuantity();
     error ListDoesntExists();
     error CurrencyNotWhitelisted(address _currency, bool isWhitelisted);
@@ -162,7 +163,6 @@ interface IMarketplace is IPlatformFee {
      */
     function createListing(ListingParameters memory _params) external;
 
-    
     /**
      * @dev Creates a new listings with the provided parameters.
      *
@@ -171,6 +171,23 @@ interface IMarketplace is IPlatformFee {
     function createMultipleListing(
         BulkListingParameters memory _params
     ) external;
+    /**
+     * @dev Updates the parameters of multiple  existing listing.
+     *
+     * @param _listingId           The unique ID of the listing to update.
+     * @param _quantityToList      The new quantity of NFTs to list.
+     * @param _buyoutPricePerToken The new buyout price per token.
+     * @param _currencyToAccept    The new currency to accept.
+     * @param _startTime           The new start time for the listing.
+     */
+    function updateListings(
+        uint256[] memory _listingId,
+        uint256[] memory _quantityToList,
+        uint256[] memory _buyoutPricePerToken,
+        address[] memory _currencyToAccept,
+        uint256[] memory _startTime
+    ) external;
+
     /**
      * @dev Updates the parameters of an existing listing.
      *
@@ -212,11 +229,11 @@ interface IMarketplace is IPlatformFee {
         uint256 _totalPrice
     ) external payable;
 
-        function bulkBuy(
+    function bulkBuy(
         uint256[] memory _listingIds,
         address _buyFor,
         uint256[] memory _quantity,
-        address _currency,
+        address[] memory _currency,
         uint256[] memory _totalPrice
     ) external payable;
 }

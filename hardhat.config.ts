@@ -4,7 +4,16 @@ import "@openzeppelin/hardhat-upgrades";
 require("dotenv").config("/.env");
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.24",
+  solidity: {
+    version: "0.8.24",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
+
   networks: {
     bsc_test: {
       url: `https://data-seed-prebsc-1-s1.binance.org:8545/`,
