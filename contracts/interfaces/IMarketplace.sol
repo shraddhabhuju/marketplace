@@ -115,7 +115,10 @@ interface IMarketplace is IPlatformFee {
         bool[] memory isWhitelisted
     ) external;
 
-    // Events
+    // Events#
+
+
+    event UsersAllowed();
     event ListingAdded(
         uint256 indexed listingId,
         address indexed assetContract,

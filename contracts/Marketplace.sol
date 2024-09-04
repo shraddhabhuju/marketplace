@@ -12,11 +12,14 @@ import {ERC2771ContextUpgradeable} from "@openzeppelin/contracts-upgradeable/met
 import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./extensions/CurrencyTransferLib.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "hardhat/console.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 contract Marketplace is
     IMarketplace,
     Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
     AccessControlEnumerableUpgradeable,
     ReentrancyGuardUpgradeable
 {
@@ -31,6 +34,9 @@ contract Marketplace is
 
     /// @dev Total number of listings ever created in the marketplace.
     uint256 public totalListings;
+
+    // to allow kyc verified users to create listings
+    bool public isUsersCreateListingAllowed;
 
     /// @dev The address of the native token wrapper contract.
     address private nativeTokenWrapper;
@@ -92,15 +98,16 @@ contract Marketplace is
         address _nativeTokenWrapper,
         address _soulBoundNftAddress
     ) external initializer {
+        __Ownable_init(_defaultAdmin);
         __ReentrancyGuard_init();
         __AccessControl_init();
+        
         nativeTokenWrapper = _nativeTokenWrapper;
         platformFeeBps = uint64(_platformFeeBps);
         platformFeeRecipient = _platformFeeRecipient;
         soulBoundNftAddres = _soulBoundNftAddress;
         _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
-        console.log("_defaultAdmin", _defaultAdmin);
-
+        isUsersCreateListingAllowed = false;
         _setRoleAdmin(CURRENCY_WHITELISTER_ROLE, DEFAULT_ADMIN_ROLE);
     }
 
@@ -718,6 +725,12 @@ contract Marketplace is
         emit CurrencyWhitelisterUpdated(account);
     }
 
+    function setUserListingState() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        isUsersCreateListingAllowed = true;
+
+        emit UsersAllowed();
+    }
+
     // Updates the whitelist status of multiple tokens.
     function updateWhitelistedTokens(
         address[] memory tokens,
@@ -777,4 +790,11 @@ contract Marketplace is
     /*///////////////////////////////////////////////////////////////
                             Miscellaneous
     //////////////////////////////////////////////////////////////*/
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
+    // Fallback function to receive native token
+    fallback() external payable {}
+
+    receive() external payable {}
 }

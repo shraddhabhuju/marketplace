@@ -16,6 +16,52 @@ async function deployErc20Token(owner: Signer, ownerAddress: string) {
   const TokenDeploy = await Token.connect(owner).deploy(ownerAddress);
   return TokenDeploy;
 }
+
+async function deployErc1400Token(owner: Signer, ownerAddress: string) {
+  const partitionFlag =
+    "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"; // Flag to indicate a partition change
+  const otherFlag =
+    "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"; // Other flag
+  const partition1_short =
+    "7265736572766564000000000000000000000000000000000000000000000000"; // reserved in hex
+  const partition2_short =
+    "6973737565640000000000000000000000000000000000000000000000000000"; // issued in hex
+  const partition3_short =
+    "6c6f636b65640000000000000000000000000000000000000000000000000000"; // locked in hex
+  const changeToPartition1 = partitionFlag.concat(partition1_short);
+  const changeToPartition2 = partitionFlag.concat(partition2_short);
+  const changeToPartition3 = partitionFlag.concat(partition3_short);
+  const doNotChangePartition = otherFlag.concat(partition2_short);
+  const partition1 = "0x".concat(partition1_short);
+  const partition2 = "0x".concat(partition2_short);
+  const partition3 = "0x".concat(partition3_short);
+  const ZERO_BYTES32 =
+    "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const partitions = [partition1, partition2, partition3];
+  const reversedPartitions = [partition3, partition1, partition2];
+
+  const documentName =
+    "0x446f63756d656e74204e616d6500000000000000000000000000000000000000";
+
+  const issuanceAmount = 1000;
+  const Token = await hre.ethers.getContractFactory("ERC1400");
+  console.log("🚀 ~ deployErc1400Token ~ Token:", Token)
+  const TokenDeploy = await Token.connect(owner).deploy(
+    "Fourteen",
+    "FOUR",
+    1,
+    [ownerAddress],
+    partitions
+  );
+
+  const issueTx = await TokenDeploy.connect(owner).issueByPartition(
+    partition1,
+    ownerAddress,
+    issuanceAmount,
+    ZERO_BYTES32
+  );
+  return TokenDeploy;
+}
 // deploy erc721 token
 async function deployErc721Token(owner: Signer, ownerAddress: string) {
   const Token = await hre.ethers.getContractFactory("MyTokenNFT");
@@ -34,15 +80,21 @@ async function deployMarketplace(
   owner: Signer,
   ownerAddress: string,
   platformFeeRecipient: string,
-  SoulBoundNftTokenAddress:string
+  SoulBoundNftTokenAddress: string
 ) {
   const Marketplace = await hre.ethers.getContractFactory("Marketplace");
   const MarketplaceDeploy = await upgrades.deployProxy(
     Marketplace,
-    [ownerAddress, platformFeeRecipient, 500, "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",SoulBoundNftTokenAddress],
+    [
+      ownerAddress,
+      platformFeeRecipient,
+      500,
+      "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+      SoulBoundNftTokenAddress,
+    ],
     { initializer: "initialize" }
   );
-  await MarketplaceDeploy.waitForDeployment()
+  await MarketplaceDeploy.waitForDeployment();
 
   return MarketplaceDeploy;
 }
@@ -53,12 +105,11 @@ async function whitelistCurrencyTokens(
   tokens: string[],
   status: boolean[]
 ) {
-  console.log("🚀 ~ signer:", signer)
+  console.log("🚀 ~ signer:", signer);
 
-  const whitelistTokenTx = await Marketplace.connect(signer).updateWhitelistedCurrency(
-    tokens,
-    status
-  );
+  const whitelistTokenTx = await Marketplace.connect(
+    signer
+  ).updateWhitelistedCurrency(tokens, status);
   await whitelistTokenTx.wait();
   return whitelistTokenTx;
 }
@@ -69,12 +120,11 @@ async function whitelistListingTokens(
   tokens: string[],
   status: boolean[]
 ) {
-  console.log("🚀 ~ signer:", signer)
+  console.log("🚀 ~ signer:", signer);
 
-  const whitelistTokenTx = await Marketplace.connect(signer).updateWhitelistedTokens(
-    tokens,
-    status
-  );
+  const whitelistTokenTx = await Marketplace.connect(
+    signer
+  ).updateWhitelistedTokens(tokens, status);
   await whitelistTokenTx.wait();
   return whitelistTokenTx;
 }
@@ -93,6 +143,7 @@ async function grantWhitelisterRole(
 export {
   deployErc20Token,
   deployErc721Token,
+  deployErc1400Token,
   deployErc1155Token,
   whitelistCurrencyTokens,
   deployMarketplace,
