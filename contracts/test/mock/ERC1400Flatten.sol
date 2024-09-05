@@ -570,15 +570,13 @@ interface IERC1820Registry {
 pragma solidity ^0.8.0;
 /// Base client to interact with the registry.
 contract ERC1820Client {
-    IERC1820Registry constant ERC1820REGISTRY =
-        IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
-
     function setInterfaceImplementation(
+        address erc1820registry,
         string memory _interfaceLabel,
         address _implementation
     ) internal {
         bytes32 interfaceHash = keccak256(abi.encodePacked(_interfaceLabel));
-        ERC1820REGISTRY.setInterfaceImplementer(
+        IERC1820Registry(erc1820registry).setInterfaceImplementer(
             address(this),
             interfaceHash,
             _implementation
@@ -586,15 +584,26 @@ contract ERC1820Client {
     }
 
     function interfaceAddr(
+        address erc1820registry,
         address addr,
         string memory _interfaceLabel
     ) internal view returns (address) {
         bytes32 interfaceHash = keccak256(abi.encodePacked(_interfaceLabel));
-        return ERC1820REGISTRY.getInterfaceImplementer(addr, interfaceHash);
+        return
+            IERC1820Registry(erc1820registry).getInterfaceImplementer(
+                addr,
+                interfaceHash
+            );
     }
 
-    function delegateManagement(address _newManager) internal {
-        ERC1820REGISTRY.setManager(address(this), _newManager);
+    function delegateManagement(
+        address erc1820registry,
+        address _newManager
+    ) internal {
+        IERC1820Registry(erc1820registry).setManager(
+            address(this),
+            _newManager
+        );
     }
 }
 
@@ -1400,6 +1409,7 @@ contract ERC1400 is
         uint256 value
     );
     /************************************************************************************************/
+    address public erc1830address;
 
     /**
      * @dev Initialize ERC1400 + register the contract implementation in ERC1820Registry.
@@ -1410,19 +1420,21 @@ contract ERC1400 is
      * @param defaultPartitions Partitions chosen by default, when partition is
      * not specified, like the case ERC20 tranfers.
      */
+
     constructor(
         string memory tokenName,
         string memory tokenSymbol,
         uint256 tokenGranularity,
         address[] memory initialControllers,
-        bytes32[] memory defaultPartitions
+        bytes32[] memory defaultPartitions,
+        address _erc1830address
     ) {
         _name = tokenName;
         _symbol = tokenSymbol;
         _totalSupply = 0;
         require(tokenGranularity >= 1); // Constructor Blocked - Token granularity can not be lower than 1
         _granularity = tokenGranularity;
-
+        erc1830address = _erc1830address;
         _setControllers(initialControllers);
 
         _defaultPartitions = defaultPartitions;
@@ -1434,13 +1446,13 @@ contract ERC1400 is
         ERC1400_INTERFACE_NAME = "ERC1400Token";
         ERC20_INTERFACE_NAME = "ERC20Token";
 
-
-        
         ERC1820Client.setInterfaceImplementation(
+            erc1830address,
             ERC1400_INTERFACE_NAME,
             address(this)
         );
         ERC1820Client.setInterfaceImplementation(
+            erc1830address,
             ERC20_INTERFACE_NAME,
             address(this)
         );
@@ -2490,7 +2502,7 @@ contract ERC1400 is
         bytes memory operatorData
     ) internal {
         address senderImplementation;
-        senderImplementation = interfaceAddr(from, ERC1400_TOKENS_SENDER);
+        senderImplementation = interfaceAddr(erc1830address,from, ERC1400_TOKENS_SENDER);
         if (senderImplementation != address(0)) {
             IERC1400TokensSender(senderImplementation).tokensToTransfer(
                 msg.data,
@@ -2525,6 +2537,7 @@ contract ERC1400 is
     ) internal {
         address validatorImplementation;
         validatorImplementation = interfaceAddr(
+            erc1830address,
             address(this),
             ERC1400_TOKENS_VALIDATOR
         );
@@ -2561,7 +2574,7 @@ contract ERC1400 is
         bytes memory operatorData
     ) internal virtual {
         address recipientImplementation;
-        recipientImplementation = interfaceAddr(to, ERC1400_TOKENS_RECIPIENT);
+        recipientImplementation = interfaceAddr(erc1830address,to, ERC1400_TOKENS_RECIPIENT);
 
         if (recipientImplementation != address(0)) {
             IERC1400TokensRecipient(recipientImplementation).tokensReceived(
@@ -2825,7 +2838,7 @@ contract ERC1400 is
         bytes memory data,
         bytes memory operatorData
     ) internal view returns (bytes1, bytes32, bytes32) {
-        address checksImplementation = interfaceAddr(
+        address checksImplementation = interfaceAddr(erc1830address,
             address(this),
             ERC1400_TOKENS_CHECKER
         );
@@ -2906,7 +2919,7 @@ contract ERC1400 is
         bool addMinterRoleForExtension,
         bool addControllerRoleForExtension
     ) internal {
-        address oldExtension = interfaceAddr(address(this), interfaceLabel);
+        address oldExtension = interfaceAddr(erc1830address,address(this), interfaceLabel);
 
         if (oldExtension != address(0) && removeOldExtensionRoles) {
             if (isMinter(oldExtension)) {
@@ -2915,7 +2928,7 @@ contract ERC1400 is
             _isController[oldExtension] = false;
         }
 
-        ERC1820Client.setInterfaceImplementation(interfaceLabel, extension);
+        ERC1820Client.setInterfaceImplementation(erc1830address,interfaceLabel, extension);
         if (addMinterRoleForExtension && !isMinter(extension)) {
             _addMinter(extension);
         }
@@ -2941,10 +2954,12 @@ contract ERC1400 is
      */
     function _migrate(address newContractAddress, bool definitive) internal {
         ERC1820Client.setInterfaceImplementation(
+            erc1830address,
             ERC20_INTERFACE_NAME,
             newContractAddress
         );
         ERC1820Client.setInterfaceImplementation(
+            erc1830address,
             ERC1400_INTERFACE_NAME,
             newContractAddress
         );

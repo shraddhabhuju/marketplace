@@ -43,15 +43,21 @@ async function deployErc1400Token(owner: Signer, ownerAddress: string) {
   const documentName =
     "0x446f63756d656e74204e616d6500000000000000000000000000000000000000";
 
-  const issuanceAmount = 1000;
+  const issuanceAmount = BigInt(
+    "100000000000000000000000000000000000000000000000000000"
+  );
+  const ERC1830 = await hre.ethers.getContractFactory("ERC1820Registry");
+  const ERC1830Deploy = await ERC1830.deploy();
+  const ERC1830DeployAddres = await ERC1830Deploy.getAddress();
   const Token = await hre.ethers.getContractFactory("ERC1400");
-  console.log("🚀 ~ deployErc1400Token ~ Token:", Token)
+  console.log("🚀 ~ deployErc1400Token ~ Token:", Token);
   const TokenDeploy = await Token.connect(owner).deploy(
     "Fourteen",
     "FOUR",
     1,
     [ownerAddress],
-    partitions
+    partitions,
+    ERC1830DeployAddres
   );
 
   const issueTx = await TokenDeploy.connect(owner).issueByPartition(
@@ -84,7 +90,7 @@ async function deployMarketplace(
   kybSoulBoundNftTokenAddress: string
 ) {
   const Marketplace = await hre.ethers.getContractFactory("Marketplace");
-  console.log("🚀 ~ kybSoulBoundNftTokenAddress:", kybSoulBoundNftTokenAddress)
+  console.log("🚀 ~ kybSoulBoundNftTokenAddress:", kybSoulBoundNftTokenAddress);
 
   const MarketplaceDeploy = await upgrades.deployProxy(
     Marketplace,
