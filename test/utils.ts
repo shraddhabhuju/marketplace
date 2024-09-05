@@ -1,7 +1,7 @@
 // deploy erc721 token
 
 import { getContractFactory } from "@nomicfoundation/hardhat-ethers/types";
-import { Signer } from "ethers";
+import { Signer, ZeroAddress } from "ethers";
 import hre, { upgrades } from "hardhat";
 import { Marketplace } from "../typechain-types";
 
@@ -80,17 +80,21 @@ async function deployMarketplace(
   owner: Signer,
   ownerAddress: string,
   platformFeeRecipient: string,
-  SoulBoundNftTokenAddress: string
+  kycSoulBoundNftTokenAddress: string,
+  kybSoulBoundNftTokenAddress: string
 ) {
   const Marketplace = await hre.ethers.getContractFactory("Marketplace");
+  console.log("🚀 ~ kybSoulBoundNftTokenAddress:", kybSoulBoundNftTokenAddress)
+
   const MarketplaceDeploy = await upgrades.deployProxy(
     Marketplace,
     [
       ownerAddress,
       platformFeeRecipient,
       500,
-      "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-      SoulBoundNftTokenAddress,
+      ZeroAddress,
+      kycSoulBoundNftTokenAddress,
+      kybSoulBoundNftTokenAddress,
     ],
     { initializer: "initialize" }
   );

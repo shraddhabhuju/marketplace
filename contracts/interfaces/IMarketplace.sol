@@ -98,7 +98,11 @@ interface IMarketplace is IPlatformFee {
     error ExccededMaximumBPS(uint256 _platformFeeBps);
     error InsufficentBalance(uint256 sentBalance, uint256 settledTotalPrice);
     error FeesExceedPrice(uint256 calculatedAmount, uint256 totalPayoutAmount);
-    error NotASoulBoundOwner(address account, address soulBoundNftAdress);
+    error NotASoulBoundOwner(
+        address account,
+        address kycSoulBoundNftAddress,
+        address kybSoulBoundNftAddress
+    );
     /**
      * @dev Allows adding or removing tokens from the whitelist.
      *
@@ -116,7 +120,6 @@ interface IMarketplace is IPlatformFee {
     ) external;
 
     // Events#
-
 
     event UsersAllowed();
     event ListingAdded(

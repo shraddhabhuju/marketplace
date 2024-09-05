@@ -21,6 +21,8 @@ import { time } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 describe("Deployments ", function () {
   let owner: Signer,
     otherAccount: Signer,
+    userOneAccount: Signer,
+    userOneAccountAddress: string,
     ownerAddress: string,
     platformFeeRecipientAddress: string,
     erc20Token: MyToken,
@@ -31,9 +33,11 @@ describe("Deployments ", function () {
     alternativeCurrencyAddress: string,
     otherAccountAddress: string,
     erc721Token: MyTokenNFT,
-    SoulBoundNft: MyTokenNFT,
+    kycSoulBoundNft: MyTokenNFT,
+    kybSoulBoundNft: MyTokenNFT,
     erc721TokenAddress: string,
-    SoulBoundNftTokenAddress: string,
+    kycSoulBoundNftTokenAddress: string,
+    kybSoulBoundNftTokenAddress: string,
     platformFeeRecipient: Signer,
     erc115Token: SemiFungible,
     listingContract: any,
@@ -55,9 +59,11 @@ describe("Deployments ", function () {
   let erc20SixAddress: string;
 
   before(async function () {
-    [owner, platformFeeRecipient, otherAccount] = await hre.ethers.getSigners();
+    [owner, platformFeeRecipient, otherAccount, userOneAccount] =
+      await hre.ethers.getSigners();
     ownerAddress = await owner.getAddress();
     otherAccountAddress = await otherAccount.getAddress();
+    userOneAccountAddress = await userOneAccount.getAddress();
     platformFeeRecipientAddress = await platformFeeRecipient.getAddress();
     //   Deploy erc20 Token
     erc20Token = await deployErc20Token(owner, ownerAddress);
@@ -92,17 +98,31 @@ describe("Deployments ", function () {
         toBigInt("100000000000000000000000000000000")
       );
 
+      await erc20Token
+      .connect(owner)
+      .transfer(
+        userOneAccountAddress,
+        toBigInt("100000000000000")
+      );
+
     // deploy erc721 token
     erc721Token = await deployErc721Token(owner, ownerAddress);
     erc721Token.waitForDeployment();
 
     erc721TokenAddress = await erc721Token.getAddress();
 
-    // deploy soulBound Nft token
-    SoulBoundNft = await deployErc721Token(owner, ownerAddress);
-    SoulBoundNft.waitForDeployment();
+    // deploy kycSoulBound Nft token
+    kycSoulBoundNft = await deployErc721Token(owner, ownerAddress);
+    kycSoulBoundNft.waitForDeployment();
 
-    SoulBoundNftTokenAddress = await erc721Token.getAddress();
+    kycSoulBoundNftTokenAddress = await kycSoulBoundNft.getAddress();
+    console.log("🚀 ~ kycSoulBoundNftTokenAddress:", kycSoulBoundNftTokenAddress)
+
+    kybSoulBoundNft = await deployErc721Token(owner, ownerAddress);
+    kybSoulBoundNft.waitForDeployment();
+
+    kybSoulBoundNftTokenAddress = await kybSoulBoundNft.getAddress();
+    console.log("🚀 ~ kybSoulBoundNftTokenAddress:", kybSoulBoundNftTokenAddress)
 
     // deploy erc1155 token
     erc115Token = await deployErc1155Token(owner, ownerAddress);
@@ -113,7 +133,8 @@ describe("Deployments ", function () {
       owner,
       ownerAddress,
       platformFeeRecipientAddress,
-      SoulBoundNftTokenAddress
+      kycSoulBoundNftTokenAddress,
+      kybSoulBoundNftTokenAddress
     );
     listingContractAddress = await listingContract.getAddress();
 
@@ -145,7 +166,7 @@ describe("Deployments ", function () {
         .connect(owner)
         .setApprovalForAll(listingContractAddress, true);
       await approveTx.wait();
-      const createErc20ListingTx = await listingContract.createListing(
+      const createErc20ListingTx = await listingContract.connect(owner).createListing(
         listingParams
       );
       const totalListings = await listingContract.totalListings();
@@ -231,7 +252,7 @@ describe("Deployments ", function () {
         .connect(owner)
         .setApprovalForAll(listingContractAddress, true);
       await approveTx.wait();
-      const createErc721ListingTx = await listingContract.createListing(
+      const createErc721ListingTx = await listingContract.connect(owner).createListing(
         listingParams
       );
       const totalListings = await listingContract.totalListings();
@@ -371,7 +392,7 @@ describe("Deployments ", function () {
         .connect(owner)
         .setApprovalForAll(listingContractAddress, true);
       await approveTx.wait();
-      const createErc1155ListingTx = await listingContract.createListing(
+      const createErc1155ListingTx = await listingContract.connect(owner).createListing(
         listingParams
       );
       const totalListings = await listingContract.totalListings();
@@ -453,7 +474,7 @@ describe("Deployments ", function () {
         .connect(owner)
         .setApprovalForAll(listingContractAddress, true);
       await approveTx.wait();
-      const createErc721ListingTx = await listingContract.createListing(
+      const createErc721ListingTx = await listingContract.connect(owner).createListing(
         listingParams
       );
       const totalListings = await listingContract.totalListings();
@@ -505,7 +526,7 @@ describe("Deployments ", function () {
         .connect(owner)
         .setApprovalForAll(listingContractAddress, true);
       await approveTx.wait();
-      const createErc1155ListingTx = await listingContract.createListing(
+      const createErc1155ListingTx = await listingContract.connect(owner).createListing(
         listingParams
       );
       const totalListings = await listingContract.totalListings();
@@ -575,7 +596,7 @@ describe("Deployments ", function () {
         .connect(owner)
         .setApprovalForAll(listingContractAddress, true);
       await approveTx.wait();
-      const createErc20ListingTx = await listingContract.createMultipleListing(
+      const createErc20ListingTx = await listingContract.connect(owner).createMultipleListing(
         listingParams
       );
       const totalListings = await listingContract.totalListings();
@@ -815,7 +836,7 @@ describe("Deployments ", function () {
         .connect(owner)
         .approve(listingContractAddress, listingParams.quantityToList);
       await approveTx.wait();
-      const createErc20ListingTx = await listingContract.createListing(
+      const createErc20ListingTx = await listingContract.connect(owner).createListing(
         listingParams
       );
       const totalListings = await listingContract.totalListings();
@@ -840,7 +861,7 @@ describe("Deployments ", function () {
       await time.increaseTo(startTime + 20);
       const balanceOfOwnerBefore = await erc20Token.balanceOf(ownerAddress);
       expect(balanceOfOwnerBefore.toString()).to.equal(
-        "100000000000000000000000000000000000000000000000000000"
+        "99999999999999999999999999999999999999900000000000000"
       );
       const balanceOfBuyerBefore = await erc115Token.balanceOf(
         otherAccountAddress,
@@ -1191,7 +1212,7 @@ describe("Deployments ", function () {
         .connect(owner)
         .approve(listingContractAddress, listingParams.quantityToList);
       await approveTx.wait();
-      const createErc20ListingTx = await listingContract.createListing(
+      const createErc20ListingTx = await listingContract.connect(owner).createListing(
         listingParams
       );
       const totalListings = await listingContract.totalListings();
@@ -1263,6 +1284,92 @@ describe("Deployments ", function () {
       expect(balanceOfBuyerAfter).to.equal(200);
       expect(balanceOfBuyerAfterTwo).to.equal(50);
       expect(balanceOfBuyerAfterFour).to.equal(50);
+    });
+  });
+
+  describe("bulk ERC20 Listing", function () {
+    it("Create  listing without having kyc or kyb", async function () {
+      const startTime = (await time.latest()) + 10;
+      const listingParams = {
+        assetContract: erc20TokenAddress, //address assetContract;
+        tokenId: 0, //uint256 ;
+        startTime: startTime, //  startTime;
+        quantityToList: 100, //uint256 quantityToList;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
+        buyoutPricePerToken: 100000, //uint256 buyoutPricePerToken;
+        isERC20: true,
+      };
+      const approveTx = await erc20Token
+        .connect(owner)
+        .approve(listingContractAddress, listingParams.quantityToList);
+      await approveTx.wait();
+      const createErc20ListingTx = listingContract
+        .connect(userOneAccount)
+        .createListing(listingParams);
+
+      await expect(createErc20ListingTx).to.revertedWithCustomError(
+        listingContract,
+        "NotASoulBoundOwner"
+      );
+    });
+
+    it("Create  listing with kyb but user create listing not enabled ", async function () {
+      const startTime = (await time.latest()) + 10;
+      const listingParams = {
+        assetContract: erc20TokenAddress, //address assetContract;
+        tokenId: 0, //uint256 ;
+        startTime: startTime, //  startTime;
+        quantityToList: 100, //uint256 quantityToList;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
+        buyoutPricePerToken: 100000, //uint256 buyoutPricePerToken;
+        isERC20: true,
+      };
+
+      const transferKyb = await kybSoulBoundNft
+        .connect(owner)
+        .transferFrom(ownerAddress, userOneAccountAddress, 1);
+
+        await transferKyb.wait()
+      const approveTx = await erc20Token
+        .connect(owner)
+        .approve(listingContractAddress, listingParams.quantityToList);
+      await approveTx.wait();
+      const createErc20ListingTx = listingContract
+        .connect(userOneAccount)
+        .createListing(listingParams);
+
+      await expect(createErc20ListingTx).to.revertedWithCustomError(
+        listingContract,
+        "NotASoulBoundOwner"
+      );
+    });
+
+    it("Create  listing with kyb but user create listing enabled ", async function () {
+      const enableTx = await listingContract.connect(owner).toggleListingState()
+      const startTime = (await time.latest()) + 10;
+      const listingParams = {
+        assetContract: erc20TokenAddress, //address assetContract;
+        tokenId: 0, //uint256 ;
+        startTime: startTime, //  startTime;
+        quantityToList: 100, //uint256 quantityToList;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
+        buyoutPricePerToken: 100000, //uint256 buyoutPricePerToken;
+        isERC20: true,
+      };
+
+      const transferKyb = await kybSoulBoundNft
+        .connect(owner)
+        .transferFrom(ownerAddress, userOneAccountAddress, 3);
+
+        await transferKyb.wait()
+      const approveTx = await erc20Token
+        .connect(userOneAccount)
+        .approve(listingContractAddress, listingParams.quantityToList);
+      await approveTx.wait();
+      const createErc20ListingTx = await listingContract
+        .connect(userOneAccount)
+        .createListing(listingParams);
+
     });
   });
 });

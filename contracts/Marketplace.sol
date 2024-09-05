@@ -14,7 +14,7 @@ import "./extensions/CurrencyTransferLib.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-
+import "hardhat/console.sol";
 contract Marketplace is
     IMarketplace,
     Initializable,
@@ -40,8 +40,9 @@ contract Marketplace is
 
     /// @dev The address of the native token wrapper contract.
     address private nativeTokenWrapper;
-    // S
-    address private soulBoundNftAddres;
+
+    address private kycSoulBoundNftAddress;
+    address private kybSoulBoundNftAddress;
 
     /// @dev whitelister who can whitelist the currency that can be used in the marketplace
     bytes32 private constant CURRENCY_WHITELISTER_ROLE =
@@ -79,10 +80,20 @@ contract Marketplace is
         }
         _;
     }
-    modifier hasSoulBoundNFT() {
-        if (IERC721(soulBoundNftAddres).balanceOf(msg.sender) < 0) {
-            revert NotASoulBoundOwner(msg.sender, soulBoundNftAddres);
+    modifier isVerifiedUserOrAssetOrginator() {
+        console.log(isUsersCreateListingAllowed);
+        if (
+            IERC721(kycSoulBoundNftAddress).balanceOf(msg.sender) == 0 ||
+            (!isUsersCreateListingAllowed &&
+                IERC721(kybSoulBoundNftAddress).balanceOf(msg.sender) == 0)
+        ) {
+            revert NotASoulBoundOwner(
+                msg.sender,
+                kycSoulBoundNftAddress,
+                kybSoulBoundNftAddress
+            );
         }
+
         _;
     }
 
@@ -96,16 +107,18 @@ contract Marketplace is
         address _platformFeeRecipient,
         uint256 _platformFeeBps,
         address _nativeTokenWrapper,
-        address _soulBoundNftAddress
+        address _kybSoulBoundNftAddress,
+        address _kycSoulBoundNftAddress
     ) external initializer {
         __Ownable_init(_defaultAdmin);
         __ReentrancyGuard_init();
         __AccessControl_init();
-        
+
         nativeTokenWrapper = _nativeTokenWrapper;
         platformFeeBps = uint64(_platformFeeBps);
         platformFeeRecipient = _platformFeeRecipient;
-        soulBoundNftAddres = _soulBoundNftAddress;
+        kycSoulBoundNftAddress = _kycSoulBoundNftAddress;
+        kybSoulBoundNftAddress = _kybSoulBoundNftAddress;
         _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
         isUsersCreateListingAllowed = false;
         _setRoleAdmin(CURRENCY_WHITELISTER_ROLE, DEFAULT_ADMIN_ROLE);
@@ -113,13 +126,13 @@ contract Marketplace is
 
     function createListing(
         ListingParameters memory _params
-    ) external override hasSoulBoundNFT {
+    ) external override isVerifiedUserOrAssetOrginator {
         _createSingleListing(_params);
     }
 
     function createMultipleListing(
         BulkListingParameters memory _params
-    ) external override hasSoulBoundNFT {
+    ) external override isVerifiedUserOrAssetOrginator {
         uint tokensLength = _params.tokenIds.length;
         uint assetsLength = _params.assetContract.length;
         uint quantityToBuyLength = _params.quantityToList.length;
@@ -725,8 +738,8 @@ contract Marketplace is
         emit CurrencyWhitelisterUpdated(account);
     }
 
-    function setUserListingState() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        isUsersCreateListingAllowed = true;
+    function toggleListingState() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        isUsersCreateListingAllowed = !isUsersCreateListingAllowed;
 
         emit UsersAllowed();
     }
