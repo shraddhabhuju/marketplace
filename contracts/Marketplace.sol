@@ -74,14 +74,6 @@ contract Marketplace is
     }
 
 
-    /// @dev Checks whether a listing exists.
-    modifier onlyNonExistingListing(bytes32 listingHash) {
-        if (activeTokenListing[listingHash]) {
-            revert ListAlreadyExists();
-        }
-        _;
-    }
-
     modifier isWhitelistedListingToken(address tokenAddress) {
         if (
             tokenAddress == address(0) ||
@@ -177,7 +169,7 @@ contract Marketplace is
     /// @dev Lets a token owner list tokens for sale: Direct Listing
     function _createSingleListing(
         ListingParameters memory _params
-    ) internal isWhitelistedListingToken(_params.assetContract) onlyNonExistingListing(_params.tokenId) {
+    ) internal isWhitelistedListingToken(_params.assetContract)  {
         // Get values to populate `Listing`.
         uint256 listingId = totalListings;
         totalListings += 1;
@@ -196,7 +188,9 @@ contract Marketplace is
         );
 
         if(tokenTypeOfListing == TokenType.ERC721) {
-            onlyNonExistingListing(assetAddressAndTokenId);
+            if (activeTokenListing[assetAddressAndTokenId]) 
+                revert ListingAlreadyExists();
+            
             activeTokenListing[assetAddressAndTokenId] = true;
         }
 
@@ -466,9 +460,9 @@ contract Marketplace is
         address _buyFor,
         uint256 _quantityToBuy,
         address _currency,
-        uint256 _totalPrice
+        uint256 _totalSentAmount
     ) external payable override nonReentrant {
-        _buy(_listingId, _buyFor, _quantityToBuy, _currency, _totalPrice);
+        _buy(_listingId, _buyFor, _quantityToBuy, _currency, _totalSentAmount);
     }
 
     /// @dev Lets an account buy a given quantity of tokens from a listing.
@@ -477,7 +471,7 @@ contract Marketplace is
         address _buyFor,
         uint256 _quantityToBuy,
         address _currency,
-        uint256 _totalPrice
+        uint256 _totalSentAmount
     ) internal onlyExistingListing(_listingId) {
         Listing memory targetListing = listings[_listingId];
         address payer = msg.sender;
@@ -489,11 +483,11 @@ contract Marketplace is
         }
         // Check whether the settled total price and currency to use are correct.
         if (
-            _currency != targetListing.currency &&
-            _totalPrice != (targetListing.buyoutPricePerToken * _quantityToBuy)
+            _currency != targetListing.currency ||
+            _totalSentAmount < (targetListing.buyoutPricePerToken * _quantityToBuy)
         ) {
             revert InsufficentBalance(
-                _totalPrice,
+                _totalSentAmount,
                 targetListing.buyoutPricePerToken * _quantityToBuy
             );
         }
@@ -503,6 +497,7 @@ contract Marketplace is
             payer,
             _buyFor,
             targetListing.currency,
+            _totalSentAmount,
             targetListing.buyoutPricePerToken * _quantityToBuy,
             _quantityToBuy
         );
@@ -513,6 +508,7 @@ contract Marketplace is
         address _payer,
         address _receiver,
         address _currency,
+        uint256 _totalSentAmount,
         uint256 _currencyAmountToTransfer,
         uint256 _listingTokenAmountToTransfer
     ) internal {
@@ -533,6 +529,7 @@ contract Marketplace is
             _payer,
             _targetListing.tokenOwner,
             _currency,
+            _totalSentAmount,
             _currencyAmountToTransfer,
             _targetListing
         );
@@ -588,6 +585,7 @@ contract Marketplace is
         address _payer,
         address _payee,
         address _currencyToUse,
+        uint _totalSentAmount,
         uint256 _totalPayoutAmount,
         Listing memory _listing
     ) internal {
@@ -605,12 +603,6 @@ contract Marketplace is
             )
         returns (address royaltyFeeRecipient, uint256 royaltyFeeAmount) {
             if (royaltyFeeRecipient != address(0) && royaltyFeeAmount > 0) {
-                if (royaltyFeeAmount + platformFeeCut > _totalPayoutAmount) {
-                    revert FeesExceedPrice(
-                        royaltyFeeAmount + platformFeeCut,
-                        _totalPayoutAmount
-                    );
-                }
                 royaltyRecipient = royaltyFeeRecipient;
                 royaltyCut = royaltyFeeAmount;
             }
@@ -640,6 +632,17 @@ contract Marketplace is
             _totalPayoutAmount - (platformFeeCut + royaltyCut),
             _nativeTokenWrapper
         );
+
+        uint256 dustFund = _totalSentAmount - _totalPayoutAmount;
+        if (dustFund > 0 && _currencyToUse == CurrencyTransferLib.NATIVE_TOKEN) {
+            CurrencyTransferLib.transferCurrencyWithWrapper(
+                _currencyToUse,
+                address(this),
+                _payer,
+                dustFund,
+                _nativeTokenWrapper
+            );
+        }
     }
 
     /// @dev Validates conditions of a direct listing sale.

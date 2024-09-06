@@ -226,14 +226,14 @@ interface IMarketplace is IPlatformFee {
      * @param _buyFor    The address that will receive the purchased NFTs.
      * @param _quantity  The quantity of NFTs to buy.
      * @param _currency  The currency to use for the purchase.
-     * @param _totalPrice The total price to pay for the tokens being bought.
+     * @param _totalSentAmount The total token sent to pay for the tokens being bought.
      */
     function buy(
         uint256 _listingId,
         address _buyFor,
         uint256 _quantity,
         address _currency,
-        uint256 _totalPrice
+        uint256 _totalSentAmount
     ) external payable;
 
     function bulkBuy(
