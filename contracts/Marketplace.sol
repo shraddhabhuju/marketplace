@@ -51,6 +51,8 @@ contract Marketplace is
     mapping(address => bool) public whitelistedListingTokens;
     // currency that are accepted to purchase the NFTs
     mapping(address => bool) public whitelistedCurrencyTokens;
+    // store active token listing status 
+    mapping(bytes32 => bool) public activeTokenListing;
     /*///////////////////////////////////////////////////////////////
                                 Modifiers
     //////////////////////////////////////////////////////////////*/
@@ -71,9 +73,18 @@ contract Marketplace is
         _;
     }
 
+
+    /// @dev Checks whether a listing exists.
+    modifier onlyNonExistingListing(bytes32 listingHash) {
+        if (activeTokenListing[listingHash]) {
+            revert ListAlreadyExists();
+        }
+        _;
+    }
+
     modifier isWhitelistedListingToken(address tokenAddress) {
         if (
-            tokenAddress == address(0) &&
+            tokenAddress == address(0) ||
             !whitelistedListingTokens[tokenAddress]
         ) {
             revert InvalidToken(tokenAddress);
@@ -166,7 +177,7 @@ contract Marketplace is
     /// @dev Lets a token owner list tokens for sale: Direct Listing
     function _createSingleListing(
         ListingParameters memory _params
-    ) internal isWhitelistedListingToken(_params.assetContract) {
+    ) internal isWhitelistedListingToken(_params.assetContract) onlyNonExistingListing(_params.tokenId) {
         // Get values to populate `Listing`.
         uint256 listingId = totalListings;
         totalListings += 1;
@@ -178,6 +189,18 @@ contract Marketplace is
         } else {
             tokenTypeOfListing = getTokenType(_params.assetContract);
         }
+
+        bytes32 assetAddressAndTokenId = _calculateAssetAddressAndTokenId(
+            _params.assetContract,
+            _params.tokenId
+        );
+
+        if(tokenTypeOfListing == TokenType.ERC721) {
+            onlyNonExistingListing(assetAddressAndTokenId);
+            activeTokenListing[assetAddressAndTokenId] = true;
+        }
+
+
 
         uint256 tokenAmountToList = getSafeQuantity(
             tokenTypeOfListing,
@@ -279,6 +302,15 @@ contract Marketplace is
             _startTime
         );
     }
+
+    /// @dev Calculate Assets Address and Token Id 
+    function _calculateAssetAddressAndTokenId(
+        address _assetContract,
+        uint256 _tokenId
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_assetContract, _tokenId));
+    }
+
 
     /// @dev Lets a listing's creator edit the listing's parameters.
     function _updateListing(

@@ -95,6 +95,7 @@ interface IMarketplace is IPlatformFee {
     error InvalidTokenType();
     error InvalidTokenAmount(uint256 quantityToBuy, uint256 listingQuantity);
     error ListingNotStarted();
+    error ListingAlreadyExists();
     error ExccededMaximumBPS(uint256 _platformFeeBps);
     error InsufficentBalance(uint256 sentBalance, uint256 settledTotalPrice);
     error FeesExceedPrice(uint256 calculatedAmount, uint256 totalPayoutAmount);
