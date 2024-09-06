@@ -8,6 +8,7 @@ import {
   deployMarketplace,
   grantWhitelisterRole,
   whitelistCurrencyTokens,
+  whitelistListingTokens,
 } from "../utils";
 import {
   Marketplace,
@@ -151,6 +152,13 @@ describe("Deployments ", function () {
       tokens,
       status
     );
+
+    const whitelistAssets = await whitelistListingTokens(
+      listingContract,
+      owner,
+      [erc721TokenAddress],
+      status
+    );
   });
 
   describe("Erc721 ", function () {
@@ -243,7 +251,7 @@ describe("Deployments ", function () {
       const startTime = (await time.latest()) + 10;
       const listingParams = {
         assetContract: erc721TokenAddress, //address assetContract;
-        tokenId: 1, //uint256 ;
+        tokenId: 2, //uint256 ;
         startTime: startTime, //  startTime;
         quantityToList: 1, //uint256 quantityToList;
         currencyToAccept: ZeroAddress, //address currencyToAccept;
@@ -310,6 +318,8 @@ describe("Deployments ", function () {
         .connect(owner)
         .setApprovalForAll(listingContractAddress, true);
       await approveTx.wait();
+
+      whitelistListingTokens(listingContract, owner, [erc1155TokenAddress], [true]);
 
       const createErc1155ListingTx = await listingContract
         .connect(owner)
@@ -466,7 +476,7 @@ describe("Deployments ", function () {
       const startTime = (await time.latest()) + 10;
       const listingParams = {
         assetContract: erc721TokenAddress, //address assetContract;
-        tokenId: 2, //uint256 ;
+        tokenId: 3, //uint256 ;
         startTime: startTime, //  startTime;
         quantityToList: 1, //uint256 quantityToList;
         currencyToAccept: alternativeCurrencyAddress, //address currencyToAccept;
@@ -500,7 +510,7 @@ describe("Deployments ", function () {
       const currency = listingParams.currencyToAccept;
       const totalPrice = listingParams.buyoutPricePerToken * quantityToBuy;
       await time.increaseTo(startTime + 20);
-      const nftOwnerBefore = await erc721Token.ownerOf(2);
+      const nftOwnerBefore = await erc721Token.ownerOf(3);
       expect(nftOwnerBefore).to.equal(ownerAddress);
       // approve currency token
       const approveCurrencyTx = await alternativeCurrency
@@ -511,14 +521,14 @@ describe("Deployments ", function () {
         .connect(otherAccount)
         .buy(listingId, buyFor, quantityToBuy, currency, totalPrice);
 
-      const nftOwnerAfter = await erc721Token.ownerOf(2);
+      const nftOwnerAfter = await erc721Token.ownerOf(3);
       expect(nftOwnerAfter).to.equal(otherAccountAddress);
     });
     it("buy erc1155 Token with alternative currency  ", async function () {
       const startTime = (await time.latest()) + 10;
       const listingParams = {
         assetContract: erc1155TokenAddress, //address assetContract;
-        tokenId: 1, //uint256 ;
+        tokenId: 4, //uint256 ;
         startTime: startTime, //  startTime;
         quantityToList: 100, //uint256 quantityToList;
         currencyToAccept: alternativeCurrencyAddress, //address currencyToAccept;
@@ -552,11 +562,11 @@ describe("Deployments ", function () {
       const currency = listingParams.currencyToAccept;
       const totalPrice = listingParams.buyoutPricePerToken * quantityToBuy;
       await time.increaseTo(startTime + 20);
-      const balanceOfOwnerBefore = await erc115Token.balanceOf(ownerAddress, 1);
+      const balanceOfOwnerBefore = await erc115Token.balanceOf(ownerAddress, 4);
       expect(balanceOfOwnerBefore).to.equal(9999999900);
       const balanceOfBuyerBefore = await erc115Token.balanceOf(
         otherAccountAddress,
-        1
+        4
       );
       expect(balanceOfBuyerBefore).to.equal(100);
       // approve currency token
@@ -570,7 +580,7 @@ describe("Deployments ", function () {
 
       const balanceOfBuyerAfter = await erc115Token.balanceOf(
         otherAccountAddress,
-        1
+        4
       );
       expect(balanceOfBuyerAfter).to.equal(200);
     });

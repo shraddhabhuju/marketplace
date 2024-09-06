@@ -8,6 +8,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract SemiFungible is ERC1155, Ownable {
     constructor(address initialOwner) ERC1155("") Ownable(initialOwner) {
         _mint(initialOwner, 1, 10000000000, "");
+        _mint(initialOwner, 2, 10000000000, "");
+        _mint(initialOwner, 3, 10000000000, "");
+        _mint(initialOwner, 4, 10000000000, "");
     }
 
     function setURI(string memory newuri) public onlyOwner {
