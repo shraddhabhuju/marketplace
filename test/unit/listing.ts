@@ -156,8 +156,13 @@ describe("Deployments ", function () {
     const whitelistAssets = await whitelistListingTokens(
       listingContract,
       owner,
-      [erc721TokenAddress],
-      status
+      [
+        erc721TokenAddress,
+        erc1155TokenAddress,
+        erc1400TokenAddress,
+        erc20TokenAddress,
+      ],
+      [true,true,true,true]
     );
   });
 
@@ -319,7 +324,12 @@ describe("Deployments ", function () {
         .setApprovalForAll(listingContractAddress, true);
       await approveTx.wait();
 
-      whitelistListingTokens(listingContract, owner, [erc1155TokenAddress], [true]);
+      whitelistListingTokens(
+        listingContract,
+        owner,
+        [erc1155TokenAddress],
+        [true]
+      );
 
       const createErc1155ListingTx = await listingContract
         .connect(owner)
@@ -563,12 +573,12 @@ describe("Deployments ", function () {
       const totalPrice = listingParams.buyoutPricePerToken * quantityToBuy;
       await time.increaseTo(startTime + 20);
       const balanceOfOwnerBefore = await erc115Token.balanceOf(ownerAddress, 4);
-      expect(balanceOfOwnerBefore).to.equal(9999999900);
+      expect(balanceOfOwnerBefore).to.equal(10000000000);
       const balanceOfBuyerBefore = await erc115Token.balanceOf(
         otherAccountAddress,
         4
       );
-      expect(balanceOfBuyerBefore).to.equal(100);
+      expect(balanceOfBuyerBefore).to.equal(0);
       // approve currency token
       const approveCurrencyTx = await alternativeCurrency
         .connect(otherAccount)
@@ -582,7 +592,7 @@ describe("Deployments ", function () {
         otherAccountAddress,
         4
       );
-      expect(balanceOfBuyerAfter).to.equal(200);
+      expect(balanceOfBuyerAfter).to.equal(100);
     });
   });
   describe("Bulk Erc721 listing ", function () {
@@ -598,7 +608,7 @@ describe("Deployments ", function () {
           erc721TokenAddress,
           erc721TokenAddress,
         ], //address assetContract;
-        tokenIds: [3, 4, 5, 6, 7, 8, 9], //uint256 ;
+        tokenIds: [10, 4, 5, 6, 7, 8, 9], //uint256 ;
         startTime: startTime, //  startTime;
         quantityToList: [1, 1, 1, 1, 1, 1, 1], //uint256 quantityToList;
         currencyToAccept: ZeroAddress, //address currencyToAccept;
@@ -880,7 +890,7 @@ describe("Deployments ", function () {
         otherAccountAddress,
         1
       );
-      expect(balanceOfBuyerBefore).to.equal(200);
+      expect(balanceOfBuyerBefore).to.equal(100);
       const buyTx = await listingContract
         .connect(otherAccount)
         .buy(listingId, buyFor, quantityToBuy, currency, totalPrice, {

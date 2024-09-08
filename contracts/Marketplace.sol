@@ -596,7 +596,7 @@ contract Marketplace is
         address royaltyRecipient;
 
         // Distribute royalties. See Sushiswap's https://github.com/sushiswap/shoyu/blob/master/contracts/base/BaseExchange.sol#L296
-        try
+        if (_listing.tokenType == TokenType.ERC721 || _listing.tokenType ==  TokenType.ERC1155) {try
             IERC2981(_listing.assetContract).royaltyInfo(
                 _listing.tokenId,
                 _totalPayoutAmount
@@ -606,7 +606,7 @@ contract Marketplace is
                 royaltyRecipient = royaltyFeeRecipient;
                 royaltyCut = royaltyFeeAmount;
             }
-        } catch {}
+        } catch {}}
 
         // Distribute price to token owner
         address _nativeTokenWrapper = nativeTokenWrapper;

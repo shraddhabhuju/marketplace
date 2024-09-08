@@ -28,6 +28,8 @@ contract MyTokenNFT is ERC721, Ownable {
         _safeMint(initialOwner, tokenId);
          tokenId++;//9
         _safeMint(initialOwner, tokenId);
+        tokenId++;//10
+        _safeMint(initialOwner, tokenId);
         
     }
 
