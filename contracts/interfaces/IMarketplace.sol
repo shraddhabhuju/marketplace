@@ -15,7 +15,6 @@ interface IMarketplace is IPlatformFee {
      *
      * @param assetContract         The address of the NFT contract.
      * @param tokenId               The ID of the NFT to list for sale. //0 for erc20 token
-     * @param startTime             The timestamp after which the listing becomes active.
      * @param quantityToList        The number of NFTs to list. Defaults to `1` for ERC721 tokens.
      * @param currencyToAccept      The currency accepted for the listing. For direct listings, this is the payment currency. For auctions, it's the bidding currency.
      * @param buyoutPricePerToken   The price per token for direct listings. For auctions, if a bid meets or exceeds this value multiplied by `quantityToList`, the auction ends immediately.
@@ -24,7 +23,6 @@ interface IMarketplace is IPlatformFee {
     struct ListingParameters {
         address assetContract;
         uint256 tokenId;
-        uint256 startTime;
         uint256 quantityToList;
         address currencyToAccept;
         uint256 buyoutPricePerToken;
@@ -36,7 +34,6 @@ interface IMarketplace is IPlatformFee {
      *
      * @param assetContract         The address of the NFT contract.
      * @param tokenIds              The ID of the NFT to list for sale. //0 for erc20 token
-     * @param startTime             The timestamp after which the listing becomes active.
      * @param quantityToList        The number of NFTs to list. Defaults to `1` for ERC721 tokens.
      * @param currencyToAccept      The currency accepted for the listing. For direct listings, this is the payment currency. For auctions, it's the bidding currency.
      * @param buyoutPricePerToken   The price per token for direct listings. For auctions, if a bid meets or exceeds this value multiplied by `quantityToList`, the auction ends immediately.
@@ -44,7 +41,6 @@ interface IMarketplace is IPlatformFee {
     struct BulkListingParameters {
         address[] assetContract;
         uint256[] tokenIds;
-        uint256 startTime;
         uint256[] quantityToList;
         address currencyToAccept;
         uint256[] buyoutPricePerToken;
@@ -58,7 +54,6 @@ interface IMarketplace is IPlatformFee {
      * @param tokenOwner            The owner of the tokens listed for sale.
      * @param assetContract         The address of the NFT contract.
      * @param tokenId               The ID of the NFT to list for sale.
-     * @param startTime             The timestamp after which the listing is active.
      * @param quantity              The number of NFTs listed. Defaults to `1` for ERC721 tokens.
      * @param currency              The currency accepted for the listing.
      * @param buyoutPricePerToken   The price per token for direct listings. For auctions, it's the buyout price per token.
@@ -70,7 +65,6 @@ interface IMarketplace is IPlatformFee {
         address tokenOwner;
         address assetContract;
         uint256 tokenId;
-        uint256 startTime;
         uint256 quantity;
         address currency;
         uint256 buyoutPricePerToken;
@@ -91,7 +85,6 @@ interface IMarketplace is IPlatformFee {
         uint256 currencyAmountToCheckAgainst
     );
     error NotListOwner(address actualOwner, address owner);
-    error InvalidStartTime(uint256 currentTimeStamp, uint256 startTime);
     error InvalidTokenType();
     error InvalidTokenAmount(uint256 quantityToBuy, uint256 listingQuantity);
     error ListingNotStarted();
@@ -185,14 +178,12 @@ interface IMarketplace is IPlatformFee {
      * @param _quantityToList      The new quantity of NFTs to list.
      * @param _buyoutPricePerToken The new buyout price per token.
      * @param _currencyToAccept    The new currency to accept.
-     * @param _startTime           The new start time for the listing.
      */
     function updateListings(
         uint256[] memory _listingId,
         uint256[] memory _quantityToList,
         uint256[] memory _buyoutPricePerToken,
-        address[] memory _currencyToAccept,
-        uint256[] memory _startTime
+        address[] memory _currencyToAccept
     ) external;
 
     /**
@@ -202,14 +193,12 @@ interface IMarketplace is IPlatformFee {
      * @param _quantityToList      The new quantity of NFTs to list.
      * @param _buyoutPricePerToken The new buyout price per token.
      * @param _currencyToAccept    The new currency to accept.
-     * @param _startTime           The new start time for the listing.
      */
     function updateListing(
         uint256 _listingId,
         uint256 _quantityToList,
         uint256 _buyoutPricePerToken,
-        address _currencyToAccept,
-        uint256 _startTime
+        address _currencyToAccept
     ) external;
 
     /**
@@ -218,6 +207,15 @@ interface IMarketplace is IPlatformFee {
      * @param _listingId The unique ID of the listing to cancel.
      */
     function cancelDirectListing(uint256 _listingId) external;
+
+
+    
+    /**
+     * @dev Cancels multiple existing direct listing.
+     *
+     * @param _listingIds The unique IDs of the listing to cancel.
+     */
+    function cancelDirectListings(uint256[] memory _listingIds) external;
 
     /**
      * @dev Allows a buyer to purchase a specified quantity of tokens from a direct listing by paying the fixed price.

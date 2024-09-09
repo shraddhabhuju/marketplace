@@ -153,7 +153,6 @@ contract Marketplace is
             ListingParameters memory params = ListingParameters({
                 assetContract: _params.assetContract[index],
                 tokenId: _params.tokenIds[index],
-                startTime: _params.startTime,
                 quantityToList: _params.quantityToList[index],
                 currencyToAccept: _params.currencyToAccept,
                 buyoutPricePerToken: _params.buyoutPricePerToken[index],
@@ -205,14 +204,7 @@ contract Marketplace is
             revert InvalidQuantity();
         }
 
-        uint256 startTime = _params.startTime;
-        if (startTime < block.timestamp) {
-            // do not allow listing to start in the past (1 hour buffer)
-            if (block.timestamp - startTime < 1 hours) {
-                revert InvalidStartTime(block.timestamp, startTime);
-            }
-            startTime = block.timestamp;
-        }
+       
 
         validateOwnershipAndApproval(
             tokenOwner,
@@ -227,7 +219,6 @@ contract Marketplace is
             tokenOwner: tokenOwner,
             assetContract: _params.assetContract,
             tokenId: _params.tokenId,
-            startTime: startTime,
             quantity: tokenAmountToList,
             currency: _params.currencyToAccept,
             buyoutPricePerToken: _params.buyoutPricePerToken,
@@ -249,20 +240,17 @@ contract Marketplace is
         uint256[] memory _listingIds,
         uint256[] memory _quantityToList,
         uint256[] memory _buyoutPricePerToken,
-        address[] memory _currencyToAccept,
-        uint256[] memory _startTime
+        address[] memory _currencyToAccept
     ) external override {
         uint listingIdsLength = _listingIds.length;
         uint quantityToListLength = _quantityToList.length;
         uint buyoutPricePerTokenLength = _buyoutPricePerToken.length;
         uint currencyToAcceptLength = _currencyToAccept.length;
-        uint startTimeLength = _startTime.length;
 
         if (
             listingIdsLength != quantityToListLength &&
             quantityToListLength != buyoutPricePerTokenLength &&
-            buyoutPricePerTokenLength != currencyToAcceptLength &&
-            currencyToAcceptLength != startTimeLength
+            buyoutPricePerTokenLength != currencyToAcceptLength
         ) {
             revert InvalidBulkUpdateData();
         }
@@ -272,8 +260,7 @@ contract Marketplace is
                 _listingIds[index],
                 _quantityToList[index],
                 _buyoutPricePerToken[index],
-                _currencyToAccept[index],
-                _startTime[index]
+                _currencyToAccept[index]
             );
             unchecked {
                 ++index;
@@ -285,15 +272,13 @@ contract Marketplace is
         uint256 _listingIds,
         uint256 _quantityToList,
         uint256 _buyoutPricePerToken,
-        address _currencyToAccept,
-        uint256 _startTime
+        address _currencyToAccept
     ) external override {
         _updateListing(
             _listingIds,
             _quantityToList,
             _buyoutPricePerToken,
-            _currencyToAccept,
-            _startTime
+            _currencyToAccept
         );
     }
 
@@ -311,8 +296,7 @@ contract Marketplace is
         uint256 _listingId,
         uint256 _quantityToList,
         uint256 _buyoutPricePerToken,
-        address _currencyToAccept,
-        uint256 _startTime
+        address _currencyToAccept
     ) internal onlyListingCreator(_listingId) {
         Listing memory targetListing = listings[_listingId];
         uint256 safeNewQuantity = getSafeQuantity(
@@ -324,23 +308,13 @@ contract Marketplace is
             revert InvalidQuantity();
         }
 
-        if (_startTime < block.timestamp) {
-            // do not allow listing to start in the past (1 hour buffer)
-            if (block.timestamp - _startTime < 1 hours) {
-                revert InvalidStartTime(block.timestamp, _startTime);
-            }
-            _startTime = block.timestamp;
-        }
-
-        uint256 newStartTime = _startTime == 0
-            ? targetListing.startTime
-            : _startTime;
+        
+      
         listings[_listingId] = Listing({
             listingId: _listingId,
             tokenOwner: _msgSender(),
             assetContract: targetListing.assetContract,
             tokenId: targetListing.tokenId,
-            startTime: newStartTime,
             quantity: safeNewQuantity,
             currency: _currencyToAccept,
             buyoutPricePerToken: _buyoutPricePerToken,
@@ -364,15 +338,38 @@ contract Marketplace is
         emit ListingUpdated(_listingId, targetListing.tokenOwner);
     }
 
-    /// @dev Lets a direct listing creator cancel their listing.
+     /// @dev Lets a direct listing creator cancel their listing.
     function cancelDirectListing(
         uint256 _listingId
-    ) external onlyListingCreator(_listingId) {
-        Listing memory targetListing = listings[_listingId];
+    ) external override {
+        _cancelDirectListing(_listingId);
+
+    }
+
+    /// @dev Lets a direct listing creator cancel their listing.
+    function _cancelDirectListing(
+        uint256 _listingId
+    ) internal onlyListingCreator(_listingId) {
+     
 
         delete listings[_listingId];
 
-        emit ListingRemoved(_listingId, targetListing.tokenOwner);
+        emit ListingRemoved(_listingId, msg.sender);
+    }
+
+
+     /// @dev Lets a direct listing creator cancel their listing.
+    function cancelDirectListings(
+        uint256[] memory _listingIds
+    ) external override {
+        uint listingsLength = _listingIds.length;  
+        for (uint index; index < listingsLength; ) {
+            _cancelDirectListing(_listingIds[index]);
+            unchecked {
+                ++index;
+            }
+        }
+
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -662,10 +659,7 @@ contract Marketplace is
             revert InvalidTokenAmount(_quantityToBuy, _listing.quantity);
         }
 
-        // Check if sale is made within the listing window.
-        if (block.timestamp < _listing.startTime) {
-            revert ListingNotStarted();
-        }
+        
 
         // Check: buyer owns and has approved sufficient currency for sale.
         if (_currency == CurrencyTransferLib.NATIVE_TOKEN) {
