@@ -51,7 +51,7 @@ contract Marketplace is
     mapping(address => bool) public whitelistedListingTokens;
     // currency that are accepted to purchase the NFTs
     mapping(address => bool) public whitelistedCurrencyTokens;
-    // store active token listing status 
+    // store active token listing status
     mapping(bytes32 => bool) public activeTokenListing;
     /*///////////////////////////////////////////////////////////////
                                 Modifiers
@@ -72,7 +72,6 @@ contract Marketplace is
         }
         _;
     }
-
 
     modifier isWhitelistedListingToken(address tokenAddress) {
         if (
@@ -168,7 +167,7 @@ contract Marketplace is
     /// @dev Lets a token owner list tokens for sale: Direct Listing
     function _createSingleListing(
         ListingParameters memory _params
-    ) internal isWhitelistedListingToken(_params.assetContract)  {
+    ) internal isWhitelistedListingToken(_params.assetContract) {
         // Get values to populate `Listing`.
         uint256 listingId = totalListings;
         totalListings += 1;
@@ -186,14 +185,12 @@ contract Marketplace is
             _params.tokenId
         );
 
-        if(tokenTypeOfListing == TokenType.ERC721) {
-            if (activeTokenListing[assetAddressAndTokenId]) 
+        if (tokenTypeOfListing == TokenType.ERC721) {
+            if (activeTokenListing[assetAddressAndTokenId])
                 revert ListingAlreadyExists();
-            
+
             activeTokenListing[assetAddressAndTokenId] = true;
         }
-
-
 
         uint256 tokenAmountToList = getSafeQuantity(
             tokenTypeOfListing,
@@ -203,8 +200,6 @@ contract Marketplace is
         if (tokenAmountToList < 0) {
             revert InvalidQuantity();
         }
-
-       
 
         validateOwnershipAndApproval(
             tokenOwner,
@@ -282,14 +277,13 @@ contract Marketplace is
         );
     }
 
-    /// @dev Calculate Assets Address and Token Id 
+    /// @dev Calculate Assets Address and Token Id
     function _calculateAssetAddressAndTokenId(
         address _assetContract,
         uint256 _tokenId
     ) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(_assetContract, _tokenId));
     }
-
 
     /// @dev Lets a listing's creator edit the listing's parameters.
     function _updateListing(
@@ -308,8 +302,6 @@ contract Marketplace is
             revert InvalidQuantity();
         }
 
-        
-      
         listings[_listingId] = Listing({
             listingId: _listingId,
             tokenOwner: _msgSender(),
@@ -335,41 +327,39 @@ contract Marketplace is
             );
         }
 
-        emit ListingUpdated(_listingId, targetListing.tokenOwner);
+        emit ListingUpdated(
+            _listingId,
+            _quantityToList,
+            _buyoutPricePerToken,
+            _currencyToAccept
+        );
     }
 
-     /// @dev Lets a direct listing creator cancel their listing.
-    function cancelDirectListing(
-        uint256 _listingId
-    ) external override {
+    /// @dev Lets a direct listing creator cancel their listing.
+    function cancelDirectListing(uint256 _listingId) external override {
         _cancelDirectListing(_listingId);
-
     }
 
     /// @dev Lets a direct listing creator cancel their listing.
     function _cancelDirectListing(
         uint256 _listingId
     ) internal onlyListingCreator(_listingId) {
-     
-
         delete listings[_listingId];
 
         emit ListingRemoved(_listingId, msg.sender);
     }
 
-
-     /// @dev Lets a direct listing creator cancel their listing.
+    /// @dev Lets a direct listing creator cancel their listing.
     function cancelDirectListings(
         uint256[] memory _listingIds
     ) external override {
-        uint listingsLength = _listingIds.length;  
+        uint listingsLength = _listingIds.length;
         for (uint index; index < listingsLength; ) {
             _cancelDirectListing(_listingIds[index]);
             unchecked {
                 ++index;
             }
         }
-
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -481,7 +471,8 @@ contract Marketplace is
         // Check whether the settled total price and currency to use are correct.
         if (
             _currency != targetListing.currency ||
-            _totalSentAmount < (targetListing.buyoutPricePerToken * _quantityToBuy)
+            _totalSentAmount <
+            (targetListing.buyoutPricePerToken * _quantityToBuy)
         ) {
             revert InsufficentBalance(
                 _totalSentAmount,
@@ -593,17 +584,22 @@ contract Marketplace is
         address royaltyRecipient;
 
         // Distribute royalties. See Sushiswap's https://github.com/sushiswap/shoyu/blob/master/contracts/base/BaseExchange.sol#L296
-        if (_listing.tokenType == TokenType.ERC721 || _listing.tokenType ==  TokenType.ERC1155) {try
-            IERC2981(_listing.assetContract).royaltyInfo(
-                _listing.tokenId,
-                _totalPayoutAmount
-            )
-        returns (address royaltyFeeRecipient, uint256 royaltyFeeAmount) {
-            if (royaltyFeeRecipient != address(0) && royaltyFeeAmount > 0) {
-                royaltyRecipient = royaltyFeeRecipient;
-                royaltyCut = royaltyFeeAmount;
-            }
-        } catch {}}
+        if (
+            _listing.tokenType == TokenType.ERC721 ||
+            _listing.tokenType == TokenType.ERC1155
+        ) {
+            try
+                IERC2981(_listing.assetContract).royaltyInfo(
+                    _listing.tokenId,
+                    _totalPayoutAmount
+                )
+            returns (address royaltyFeeRecipient, uint256 royaltyFeeAmount) {
+                if (royaltyFeeRecipient != address(0) && royaltyFeeAmount > 0) {
+                    royaltyRecipient = royaltyFeeRecipient;
+                    royaltyCut = royaltyFeeAmount;
+                }
+            } catch {}
+        }
 
         // Distribute price to token owner
         address _nativeTokenWrapper = nativeTokenWrapper;
@@ -631,7 +627,9 @@ contract Marketplace is
         );
 
         uint256 dustFund = _totalSentAmount - _totalPayoutAmount;
-        if (dustFund > 0 && _currencyToUse == CurrencyTransferLib.NATIVE_TOKEN) {
+        if (
+            dustFund > 0 && _currencyToUse == CurrencyTransferLib.NATIVE_TOKEN
+        ) {
             CurrencyTransferLib.transferCurrencyWithWrapper(
                 _currencyToUse,
                 address(this),
@@ -658,8 +656,6 @@ contract Marketplace is
         ) {
             revert InvalidTokenAmount(_quantityToBuy, _listing.quantity);
         }
-
-        
 
         // Check: buyer owns and has approved sufficient currency for sale.
         if (_currency == CurrencyTransferLib.NATIVE_TOKEN) {

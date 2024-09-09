@@ -137,7 +137,9 @@ interface IMarketplace is IPlatformFee {
 
     event ListingUpdated(
         uint256 indexed listingId,
-        address indexed listingCreator
+        uint256  quantityToList,
+        uint256  buyoutPricePerToken,
+        address  currencyToAccept
     );
 
     event ListingRemoved(
@@ -208,8 +210,6 @@ interface IMarketplace is IPlatformFee {
      */
     function cancelDirectListing(uint256 _listingId) external;
 
-
-    
     /**
      * @dev Cancels multiple existing direct listing.
      *
