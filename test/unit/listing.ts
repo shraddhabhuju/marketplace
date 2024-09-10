@@ -6,6 +6,7 @@ import {
   deployErc20Token,
   deployErc721Token,
   deployMarketplace,
+  deployRoyaltyErc721Token,
   grantWhitelisterRole,
   whitelistCurrencyTokens,
   whitelistListingTokens,
@@ -14,6 +15,7 @@ import {
   Marketplace,
   MyToken,
   MyTokenNFT,
+  RoyaltyNFT,
   SemiFungible,
 } from "../../typechain-types";
 const { expect } = require("chai");
@@ -36,10 +38,14 @@ describe("Deployments ", function () {
     erc721Token: MyTokenNFT,
     kycSoulBoundNft: MyTokenNFT,
     kybSoulBoundNft: MyTokenNFT,
+    royaltyNFT:RoyaltyNFT,
+    royaltyNFTAddress:string,
     erc721TokenAddress: string,
     kycSoulBoundNftTokenAddress: string,
     kybSoulBoundNftTokenAddress: string,
     platformFeeRecipient: Signer,
+    royaltyFeeRecipient: Signer,
+    royaltyFeeRecipientAddress: string,
     erc115Token: SemiFungible,
     listingContract: any,
     erc1155TokenAddress: string,
@@ -60,15 +66,17 @@ describe("Deployments ", function () {
   let erc20SixAddress: string;
 
   before(async function () {
-    [owner, platformFeeRecipient, otherAccount, userOneAccount] =
+    [owner, platformFeeRecipient, otherAccount, userOneAccount,royaltyFeeRecipient] =
       await hre.ethers.getSigners();
     ownerAddress = await owner.getAddress();
     otherAccountAddress = await otherAccount.getAddress();
     userOneAccountAddress = await userOneAccount.getAddress();
     platformFeeRecipientAddress = await platformFeeRecipient.getAddress();
+    royaltyFeeRecipientAddress = await royaltyFeeRecipient.getAddress();
     //   Deploy erc20 Token
     erc20Token = await deployErc20Token(owner, ownerAddress);
     erc20Token.waitForDeployment();
+
     erc20TokenAddress = await erc20Token.getAddress();
     erc20Two = await deployErc20Token(owner, ownerAddress);
     erc20TwoAddress = await erc20Two.getAddress();
@@ -109,6 +117,12 @@ describe("Deployments ", function () {
 
     erc721TokenAddress = await erc721Token.getAddress();
 
+
+    royaltyNFT = await deployRoyaltyErc721Token(owner, ownerAddress,royaltyFeeRecipientAddress);
+    royaltyNFT.waitForDeployment();
+
+    royaltyNFTAddress = await royaltyNFT.getAddress();
+
     // deploy kycSoulBound Nft token
     kycSoulBoundNft = await deployErc721Token(owner, ownerAddress);
     kycSoulBoundNft.waitForDeployment();
@@ -123,10 +137,7 @@ describe("Deployments ", function () {
     kybSoulBoundNft.waitForDeployment();
 
     kybSoulBoundNftTokenAddress = await kybSoulBoundNft.getAddress();
-    console.log(
-      "🚀 ~ kybSoulBoundNftTokenAddress:",
-      kybSoulBoundNftTokenAddress
-    );
+
 
     // deploy erc1155 token
     erc115Token = await deployErc1155Token(owner, ownerAddress);
@@ -161,8 +172,9 @@ describe("Deployments ", function () {
         erc1155TokenAddress,
         erc1400TokenAddress,
         erc20TokenAddress,
+        royaltyNFTAddress
       ],
-      [true, true, true, true]
+      [true, true, true, true,true]
     );
   });
 
@@ -285,6 +297,13 @@ describe("Deployments ", function () {
       const ownershipBeforeApproval = await erc721Token.ownerOf(
         listingParams.tokenId
       );
+      const provider = hre.ethers.provider;
+      const balanceBefore = await provider.getBalance(
+        platformFeeRecipientAddress
+      );
+      const balanceBeforeOwner = await provider.getBalance(ownerAddress);
+      const balanceBeforeOther = await provider.getBalance(otherAccountAddress);
+     
       expect(ownershipBeforeApproval).to.equal(ownerAddress);
       const buyTx = await listingContract
         .connect(otherAccount)
@@ -295,6 +314,16 @@ describe("Deployments ", function () {
       const ownershipAfterApproval = await erc721Token.ownerOf(
         listingParams.tokenId
       );
+
+      const balanceAfter = await provider.getBalance(
+        platformFeeRecipientAddress
+      );
+      const balanceAfterOwner = await provider.getBalance(ownerAddress);
+     
+      const balanceAfterOther = await provider.getBalance(otherAccountAddress);
+      expect(balanceAfter).to.be.greaterThan(balanceBefore)
+      expect(balanceAfterOwner).to.be.greaterThan(balanceBeforeOwner)
+      expect(balanceAfterOther).to.be.lessThan(balanceBeforeOther)
       expect(ownershipAfterApproval).to.equal(otherAccountAddress);
     });
   });
@@ -1187,7 +1216,6 @@ describe("Deployments ", function () {
         listingParams.buyoutPricePerToken[5]
       );
 
-
       const listing7 = await listingContract.listings(24);
       expect(listing7.listingId).to.equal(24);
       expect(listing7.tokenOwner).to.equal(ownerAddress);
@@ -1200,8 +1228,7 @@ describe("Deployments ", function () {
         listingParams.buyoutPricePerToken[6]
       );
 
-
-      const listingIds = [18,19,20,21];
+      const listingIds = [18, 19, 20, 21];
 
       const cancelListingTx = await listingContract
         .connect(owner)
@@ -1219,7 +1246,6 @@ describe("Deployments ", function () {
       expect(listing.quantity).to.equal(0);
       expect(listing.currency).to.equal(ZeroAddress);
       expect(listing.buyoutPricePerToken).to.equal(0);
-
 
       const listing_2 = await listingContract.listings(19);
       expect(listing_2.listingId).to.equal(0);
@@ -1259,5 +1285,83 @@ describe("Deployments ", function () {
       expect(listing_4.currency).to.equal(ZeroAddress);
       expect(listing_4.buyoutPricePerToken).to.equal(0);
     });
+  });
+
+
+  
+  describe("Royalties Erc721 ", function () {
+
+    it("buy royalty erc721 Token with Eth ", async function () {
+      const listingParams = {
+        assetContract: royaltyNFTAddress, //address assetContract;
+        tokenId: 1, //uint256 ;
+        quantityToList: 1, //uint256 quantityToList;
+        currencyToAccept: ZeroAddress, //address currencyToAccept;
+        buyoutPricePerToken: 100000, //uint256 buyoutPricePerToken;
+        isERC20: false,
+      };
+
+      const approveTx = await royaltyNFT
+        .connect(owner)
+        .setApprovalForAll(listingContractAddress, true);
+      await approveTx.wait();
+      const createErc721ListingTx = await listingContract
+        .connect(owner)
+        .createListing(listingParams);
+      const totalListings = await listingContract.totalListings();
+
+      expect(totalListings).to.equal(26);
+      const listing = await listingContract.listings(25);
+      expect(listing.listingId).to.equal(25);
+      expect(listing.tokenOwner).to.equal(ownerAddress);
+      expect(listing.assetContract).to.equal(royaltyNFTAddress);
+      expect(listing.tokenId).to.equal(listingParams.tokenId);
+      expect(listing.quantity).to.equal(listingParams.quantityToList);
+      expect(listing.currency).to.equal(listingParams.currencyToAccept);
+      expect(listing.buyoutPricePerToken).to.equal(
+        listingParams.buyoutPricePerToken
+      );
+      const listingId = 25;
+      const buyFor = await otherAccount.getAddress();
+      const quantityToBuy = 1;
+      const currency = listingParams.currencyToAccept;
+      const totalPrice = listingParams.buyoutPricePerToken * quantityToBuy;
+      const ownershipBeforeApproval = await royaltyNFT.ownerOf(
+        listingParams.tokenId
+      );
+      console.log("🚀 ~ ownershipBeforeApproval:",ownerAddress, ownershipBeforeApproval)
+      const provider = hre.ethers.provider;
+      const balanceBefore = await provider.getBalance(
+        platformFeeRecipientAddress
+      );
+      const balanceBeforeOwner = await provider.getBalance(ownerAddress);
+      const balanceBeforeRoyalty = await provider.getBalance(royaltyFeeRecipientAddress);
+      const balanceBeforeOther = await provider.getBalance(otherAccountAddress);
+     
+      expect(ownershipBeforeApproval).to.equal(ownerAddress);
+      const buyTx = await listingContract
+        .connect(otherAccount)
+        .buy(listingId, buyFor, quantityToBuy, currency, totalPrice, {
+          value: totalPrice,
+        });
+
+      const ownershipAfterApproval = await royaltyNFT.ownerOf(
+        listingParams.tokenId
+      );
+
+      const balanceAfter = await provider.getBalance(
+        platformFeeRecipientAddress
+      );
+      const balanceAfterOwner = await provider.getBalance(ownerAddress);
+      const balanceAfterRoyalty = await provider.getBalance(royaltyFeeRecipientAddress);
+     
+      const balanceAfterOther = await provider.getBalance(otherAccountAddress);
+      expect(balanceAfter).to.be.greaterThan(balanceBefore)
+      expect(balanceAfterRoyalty).to.be.greaterThan(balanceBeforeRoyalty)
+      expect(balanceAfterOwner).to.be.greaterThan(balanceBeforeOwner)
+      expect(balanceAfterOther).to.be.lessThan(balanceBeforeOther)
+      expect(ownershipAfterApproval).to.equal(otherAccountAddress);
+    });
+   
   });
 });

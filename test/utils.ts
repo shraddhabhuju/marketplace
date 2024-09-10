@@ -74,6 +74,22 @@ async function deployErc721Token(owner: Signer, ownerAddress: string) {
   const TokenDeploy = await Token.connect(owner).deploy(ownerAddress);
   return TokenDeploy;
 }
+
+async function deployRoyaltyErc721Token(
+  owner: Signer,
+  ownerAddress: string,
+  royaltyReceiver: string
+) {
+  const Token = await hre.ethers.getContractFactory("RoyaltyNFT");
+  const TokenDeploy = await Token.connect(owner).deploy("ROYAL", "ROYAL",ownerAddress);
+  const mintTx = await TokenDeploy.connect(owner).mintWithRoyalty(
+    ownerAddress,
+    "",
+    royaltyReceiver,
+    50
+  );
+  return TokenDeploy;
+}
 //deploy erc 1155 token
 async function deployErc1155Token(owner: Signer, ownerAddress: string) {
   const Token = await hre.ethers.getContractFactory("SemiFungible");
@@ -159,4 +175,5 @@ export {
   deployMarketplace,
   grantWhitelisterRole,
   whitelistListingTokens,
+  deployRoyaltyErc721Token,
 };

@@ -83,7 +83,6 @@ contract Marketplace is
         _;
     }
     modifier isVerifiedUserOrAssetOrginator() {
-        console.log(isUsersCreateListingAllowed);
         if (
             IERC721(kycSoulBoundNftAddress).balanceOf(msg.sender) == 0 ||
             (!isUsersCreateListingAllowed &&
@@ -376,6 +375,7 @@ contract Marketplace is
     ) internal view {
         address market = address(this);
         bool isValid;
+
         if (_tokenType == TokenType.ERC1155) {
             isValid =
                 IERC1155(_assetContract).balanceOf(_tokenOwner, _tokenId) >=
@@ -582,6 +582,7 @@ contract Marketplace is
 
         uint256 royaltyCut;
         address royaltyRecipient;
+       
 
         // Distribute royalties. See Sushiswap's https://github.com/sushiswap/shoyu/blob/master/contracts/base/BaseExchange.sol#L296
         if (
@@ -600,6 +601,8 @@ contract Marketplace is
                 }
             } catch {}
         }
+
+     
 
         // Distribute price to token owner
         address _nativeTokenWrapper = nativeTokenWrapper;
@@ -745,7 +748,7 @@ contract Marketplace is
         address _platformFeeRecipient,
         uint256 _platformFeeBps
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_platformFeeBps <= MAX_BPS) {
+        if (_platformFeeBps > MAX_BPS) {
             revert ExccededMaximumBPS(_platformFeeBps);
         }
 
