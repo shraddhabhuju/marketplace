@@ -343,7 +343,14 @@ contract Marketplace is
     function _cancelDirectListing(
         uint256 _listingId
     ) internal onlyListingCreator(_listingId) {
+        Listing memory targetListing = listings[_listingId];
+        bytes32 assetAddressAndTokenId = _calculateAssetAddressAndTokenId(
+            targetListing.assetContract,
+            targetListing.tokenId
+        );
+
         delete listings[_listingId];
+        delete activeTokenListing[assetAddressAndTokenId];
 
         emit ListingRemoved(_listingId, msg.sender);
     }
@@ -582,7 +589,6 @@ contract Marketplace is
 
         uint256 royaltyCut;
         address royaltyRecipient;
-       
 
         // Distribute royalties. See Sushiswap's https://github.com/sushiswap/shoyu/blob/master/contracts/base/BaseExchange.sol#L296
         if (
@@ -601,8 +607,6 @@ contract Marketplace is
                 }
             } catch {}
         }
-
-     
 
         // Distribute price to token owner
         address _nativeTokenWrapper = nativeTokenWrapper;
