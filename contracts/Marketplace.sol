@@ -496,6 +496,14 @@ contract Marketplace is
             targetListing.buyoutPricePerToken * _quantityToBuy,
             _quantityToBuy
         );
+        
+        if (targetListing.tokenType == TokenType.ERC721) {
+            bytes32 assetAddressAndTokenId = _calculateAssetAddressAndTokenId(
+                targetListing.assetContract,
+                targetListing.tokenId
+            );
+            delete activeTokenListing[assetAddressAndTokenId];
+        }
     }
 
     function executeSale(
