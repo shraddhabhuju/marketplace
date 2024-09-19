@@ -404,7 +404,7 @@ contract Marketplace is
                     _quantity);
         }
         if (!isValid) {
-            revert InvalidTokenType();
+            revert InvalidTokenAllowance();
         }
     }
 
@@ -468,6 +468,8 @@ contract Marketplace is
         uint256 _totalSentAmount
     ) internal onlyExistingListing(_listingId) {
         Listing memory targetListing = listings[_listingId];
+        uint decimals = 0;
+        uint256 calculatedPayOutAmount = 0;
         address payer = msg.sender;
         if (!whitelistedCurrencyTokens[_currency]) {
             revert CurrencyNotWhitelisted(
@@ -475,16 +477,33 @@ contract Marketplace is
                 whitelistedCurrencyTokens[_currency]
             );
         }
+
         // Check whether the settled total price and currency to use are correct.
-        if (
-            _currency != targetListing.currency ||
-            _totalSentAmount <
-            (targetListing.buyoutPricePerToken * _quantityToBuy)
-        ) {
-            revert InsufficentBalance(
-                _totalSentAmount,
-                targetListing.buyoutPricePerToken * _quantityToBuy
-            );
+        if (targetListing.tokenType == TokenType.ERC20Variant) {
+            decimals = IERC20Variant(targetListing.assetContract).decimals();
+            calculatedPayOutAmount = ((targetListing.buyoutPricePerToken *
+                _quantityToBuy) / (10 ** decimals));
+            if (
+                _currency != targetListing.currency ||
+                _totalSentAmount < calculatedPayOutAmount ||
+                calculatedPayOutAmount < 0
+            ) {
+                revert InsufficentBalance(
+                    _totalSentAmount,
+                    calculatedPayOutAmount
+                );
+            }
+        } else {
+            if (
+                _currency != targetListing.currency ||
+                _totalSentAmount <
+                (targetListing.buyoutPricePerToken * _quantityToBuy)
+            ) {
+                revert InsufficentBalance(
+                    _totalSentAmount,
+                    targetListing.buyoutPricePerToken * _quantityToBuy
+                );
+            }
         }
 
         executeSale(
@@ -493,10 +512,15 @@ contract Marketplace is
             _buyFor,
             targetListing.currency,
             _totalSentAmount,
-            targetListing.buyoutPricePerToken * _quantityToBuy,
+            targetListing.tokenType == TokenType.ERC20Variant
+                ? ((targetListing.buyoutPricePerToken * _quantityToBuy) /
+                    (10 ** decimals))
+                : targetListing.buyoutPricePerToken * _quantityToBuy,
             _quantityToBuy
         );
-        
+
+        listings[_listingId].quantity -= _quantityToBuy;
+
         if (targetListing.tokenType == TokenType.ERC721) {
             bytes32 assetAddressAndTokenId = _calculateAssetAddressAndTokenId(
                 targetListing.assetContract,
@@ -527,7 +551,6 @@ contract Marketplace is
             revert InvalidQuantity();
         }
 
-        _targetListing.quantity -= _listingTokenAmountToTransfer;
         payout(
             _payer,
             _targetListing.tokenOwner,
@@ -642,6 +665,7 @@ contract Marketplace is
         );
 
         uint256 dustFund = _totalSentAmount - _totalPayoutAmount;
+
         if (
             dustFund > 0 && _currencyToUse == CurrencyTransferLib.NATIVE_TOKEN
         ) {

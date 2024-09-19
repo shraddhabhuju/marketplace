@@ -19,11 +19,7 @@ contract RoyaltyNFT is ERC721URIStorage, ERC2981, Ownable {
         _setDefaultRoyalty(msg.sender, 100);
     }
 
-    function _burn(uint256 tokenId) internal virtual override {
-        super._burn(tokenId);
-
-        _resetTokenRoyalty(tokenId);
-    }
+   
 
     function burn(uint256 tokenId) public onlyOwner {
         _burn(tokenId);

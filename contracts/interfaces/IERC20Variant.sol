@@ -56,4 +56,7 @@ interface IERC20Variant {
         address to,
         uint256 value
     ) external returns (bool);
+
+
+    function decimals() external view returns (uint8);
 }

@@ -73,6 +73,7 @@ interface IMarketplace is IPlatformFee {
 
     // Errors
     error InvalidToken(address tokenAddress);
+    error InvalidTokenAllowance();
     error InvalidTokenData();
     error InvalidBulkBuyData();
     error InvalidBulkUpdateData();
