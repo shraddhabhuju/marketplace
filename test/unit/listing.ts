@@ -1150,14 +1150,30 @@ describe("Deployments ", function () {
         ], //address assetContract;
         tokenIds: [0, 0, 0, 0, 0, 0, 0], //uint256 ;
 
-        quantityToList: [1, 1, 1, 1, 1, 1, 1], //uint256 quantityToList;
+        quantityToList: [
+          parseUnits("1"),
+          parseUnits("1"),
+          parseUnits("1"),
+          parseUnits("1"),
+          parseUnits("1"),
+          parseUnits("1"),
+          parseUnits("1"),
+        ], //uint256 quantityToList;
         currencyToAccept: ZeroAddress, //address currencyToAccept;
-        buyoutPricePerToken: [10000, 20000, 30000, 40000, 10000, 10000, 10000], //uint256 buyoutPricePerToken;
+        buyoutPricePerToken: [
+          parseUnits("0.000000001"),
+          parseUnits("0.000000001"),
+          parseUnits("0.000000001"),
+          parseUnits("0.000000001"),
+          parseUnits("0.000000001"),
+          parseUnits("0.000000001"),
+          parseUnits("0.000000001"),
+        ], //uint256 buyoutPricePerToken;
         isERC20: [true, true, true, true, true, true, true, true],
       };
       const approveTx = await erc20Token
         .connect(owner)
-        .approve(listingContractAddress, 7);
+        .approve(listingContractAddress, parseUnits("7"));
       await approveTx.wait();
       const createErc20ListingTx = await listingContract
         .connect(owner)
@@ -1248,7 +1264,7 @@ describe("Deployments ", function () {
         listingParams.buyoutPricePerToken[6]
       );
 
-      const listingIds = [18, 19, 20, 21];
+      let listingIds = [18, 19, 20, 21];
 
       const cancelListingTx = await listingContract
         .connect(owner)
@@ -1304,6 +1320,27 @@ describe("Deployments ", function () {
       expect(listing_4.quantity).to.equal(0);
       expect(listing_4.currency).to.equal(ZeroAddress);
       expect(listing_4.buyoutPricePerToken).to.equal(0);
+
+      listingIds = [22, 23];
+      const buyFor = await otherAccount.getAddress();
+      const quantityToBuy = [parseUnits("1"), parseUnits("1")];
+      const currency = [ZeroAddress, ZeroAddress];
+      const totalPrice = [
+        listingParams.buyoutPricePerToken[4] * quantityToBuy[0],
+        listingParams.buyoutPricePerToken[5] * quantityToBuy[1],
+      ];
+      const totalValue =
+        totalPrice[0] / BigInt(10 ** 18) + totalPrice[1] / BigInt(10 ** 18);
+      const ownershipBeforeApproval = await erc20Token.balanceOf(owner);
+      const buyTx = await listingContract
+        .connect(otherAccount)
+        .bulkBuy(listingIds, buyFor, quantityToBuy, currency, totalPrice, {
+          value: totalValue,
+        });
+
+      let balanceOfBuyerAfter = await erc20Token.balanceOf(otherAccountAddress);
+
+      expect(balanceOfBuyerAfter).to.equal("12000000000000000000");
     });
   });
 
@@ -1446,7 +1483,7 @@ describe("Deployments ", function () {
 
       console.log("🚀 ~ listingAfter:", listingAfter);
 
-      expect(balanceOfBuyerAfter).to.equal("20000000000000000000");
+      expect(balanceOfBuyerAfter).to.equal("22000000000000000000");
 
       buyTx = await listingContract
         .connect(otherAccount)
@@ -1459,7 +1496,7 @@ describe("Deployments ", function () {
 
       console.log("🚀 ~ listingAfter:", listingAfter);
 
-      expect(balanceOfBuyerAfter).to.equal("30000000000000000000");
+      expect(balanceOfBuyerAfter).to.equal("32000000000000000000");
 
       quantityToBuy = parseUnits("80");
       totalPrice =
@@ -1477,7 +1514,7 @@ describe("Deployments ", function () {
 
       console.log("🚀 ~ listingAfter:", listingAfter);
 
-      expect(balanceOfBuyerAfter).to.equal("110000000000000000000");
+      expect(balanceOfBuyerAfter).to.equal("112000000000000000000");
     });
 
     it("buy erc20 Token with erc-20 tokens ", async function () {
@@ -1523,7 +1560,7 @@ describe("Deployments ", function () {
         otherAccountAddress
       );
 
-      expect(balanceOfBuyerBefore).to.equal("110000000000000000000");
+      expect(balanceOfBuyerBefore).to.equal("112000000000000000000");
 
       let approveCurrencyTx = await alternativeCurrency
         .connect(otherAccount)
@@ -1537,7 +1574,7 @@ describe("Deployments ", function () {
       let balanceOfBuyerAfter = await erc20Token.balanceOf(otherAccountAddress);
       let listingAfter = await listingContract.listings(27);
 
-      expect(balanceOfBuyerAfter).to.equal("120000000000000000000");
+      expect(balanceOfBuyerAfter).to.equal("122000000000000000000");
       approveCurrencyTx = await alternativeCurrency
         .connect(otherAccount)
         .approve(listingContract, totalPrice);
@@ -1552,7 +1589,7 @@ describe("Deployments ", function () {
 
       console.log("🚀 ~ listingAfter:", listingAfter);
 
-      expect(balanceOfBuyerAfter).to.equal("130000000000000000000");
+      expect(balanceOfBuyerAfter).to.equal("132000000000000000000");
 
       quantityToBuy = parseUnits("80");
       totalPrice =
@@ -1572,13 +1609,13 @@ describe("Deployments ", function () {
 
       console.log("🚀 ~ listingAfter:", listingAfter);
 
-      expect(balanceOfBuyerAfter).to.equal("210000000000000000000");
+      expect(balanceOfBuyerAfter).to.equal("212000000000000000000");
       expect(listingAfter.quantity).to.equal(0);
     });
   });
 
   describe("Bulk listing Erc-20 ", function () {
-    it("Create Bulk listing for erc20 Token", async function () {
+    it("Create Bulk listing for erc20 Token and buying with erc20 currency", async function () {
       const listingParams = {
         assetContract: [
           erc20TokenAddress,
@@ -1717,7 +1754,7 @@ describe("Deployments ", function () {
 
       const listingIds = [28, 29];
       const buyFor = await otherAccount.getAddress();
-      const quantityToBuy = [parseUnits("100"), parseUnits("1")];
+      const quantityToBuy = [parseUnits("100"), parseUnits("100")];
       const currency = [alternativeCurrency, alternativeCurrency];
       const totalPrice = [
         listingParams.buyoutPricePerToken[0] * quantityToBuy[0],
@@ -1733,11 +1770,9 @@ describe("Deployments ", function () {
         .connect(otherAccount)
         .bulkBuy(listingIds, buyFor, quantityToBuy, currency, totalPrice);
 
-        let balanceOfBuyerAfter = await erc20Token.balanceOf(otherAccountAddress);
-      
-  
-  
-        expect(balanceOfBuyerAfter).to.equal("311000000000000000000");
+      let balanceOfBuyerAfter = await erc20Token.balanceOf(otherAccountAddress);
+
+      expect(balanceOfBuyerAfter).to.equal("412000000000000000000");
     });
   });
 });
