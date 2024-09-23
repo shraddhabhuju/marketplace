@@ -402,13 +402,6 @@ contract Marketplace is
                 _quantity &&
                 (IERC20Variant(_assetContract).allowance(_tokenOwner, market) >=
                     _quantity);
-
-            console.log(
-                " ~ IERC20Variant(_assetContract).balanceOf(_tokenOwner):",
-                IERC20Variant(_assetContract).balanceOf(_tokenOwner),
-                _quantity,
-                IERC20Variant(_assetContract).allowance(_tokenOwner, market)
-            );
         }
         if (!isValid) {
             revert InvalidTokenAllowance();
@@ -436,6 +429,7 @@ contract Marketplace is
         for (uint256 index = 0; index < listingsLength; ) {
             Listing memory targetListing = listings[_listingIds[index]];
             uint256 decimals = 0;
+            uint256 priceInWei = _totalPrice[index];
 
             if (targetListing.tokenType == TokenType.ERC20Variant) {
                 // Cache decimals to avoid repetitive external calls
@@ -445,23 +439,28 @@ contract Marketplace is
 
             // Handle payments
             if (_currency[index] == address(0)) {
-                uint256 priceInWei = _totalPrice[index] / (10 ** decimals);
                 if (sentValue < priceInWei) {
                     revert InsufficentBalance(sentValue, _totalPrice[index]);
                 }
-                sentValue -= priceInWei;
-            }
 
-            // Execute the buy operation with or without decimal adjustment
-            _buy(
-                _listingIds[index],
-                _buyFor,
-                _quantityToBuy[index],
-                _currency[index],
-                (targetListing.tokenType == TokenType.ERC20Variant)
-                    ? _totalPrice[index] / (10 ** decimals)
-                    : _totalPrice[index]
-            );
+                // Execute the buy operation with or without decimal adjustment
+                _buy(
+                    _listingIds[index],
+                    _buyFor,
+                    _quantityToBuy[index],
+                    _currency[index],
+                    priceInWei
+                );
+                sentValue -= priceInWei;
+            } else {
+                _buy(
+                    _listingIds[index],
+                    _buyFor,
+                    _quantityToBuy[index],
+                    _currency[index],
+                    _totalPrice[index]
+                );
+            }
 
             unchecked {
                 ++index;
@@ -683,7 +682,11 @@ contract Marketplace is
             _nativeTokenWrapper
         );
 
+
         uint256 dustFund = _totalSentAmount - _totalPayoutAmount;
+        console.log(" ~ _totalPayoutAmount:", _totalPayoutAmount);
+        console.log(" ~ _totalSentAmount:", _totalSentAmount);
+        console.log(" ~ dustFund:", dustFund);
 
         if (
             dustFund > 0 && _currencyToUse == CurrencyTransferLib.NATIVE_TOKEN
